@@ -1,7 +1,6 @@
-
-import { useState } from "react";
-import { format } from "date-fns";
-import { Calendar as CalendarIcon, Clock, Trash2, Edit, PlayCircle, PauseCircle, Plus, ChevronDown } from "lucide-react";
+import { useState, useEffect } from "react";
+import { format, parseISO } from "date-fns";
+import { Calendar as CalendarIcon, Clock, Trash2, Edit, PlayCircle, PauseCircle, Plus, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -45,14 +44,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -65,198 +56,294 @@ import { toast } from "sonner";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-
-// Mock data
-const youtubeAccounts = [
-  { id: 1, email: "channel1@gmail.com", status: "active" },
-  { id: 2, email: "youtube-creator@gmail.com", status: "active" },
-  { id: 3, email: "disconnected@gmail.com", status: "inactive" },
-];
-
-const initialPlanners = [
-  {
-    id: 1,
-    name: "New Video Promotion",
-    comment: "Great video! I love the insights you shared about content creation. Keep up the good work!",
-    videos: ["dQw4w9WgXcQ", "9bZkp7q19f0"],
-    accounts: [1, 2],
-    startDate: new Date(2023, 9, 15, 8, 30),
-    repeatEvery: { value: 1, unit: "days" },
-    delay: { value: 30, unit: "seconds" },
-    status: "active",
-  },
-  {
-    id: 2,
-    name: "Channel Promotion",
-    comment: "Just found your channel and it's amazing! I'd appreciate if you could check out my content as well.",
-    videos: ["xvFZjo5PgG0"],
-    accounts: [1],
-    startDate: new Date(2023, 9, 18, 14, 0),
-    repeatEvery: { value: 2, unit: "hours" },
-    delay: { value: 15, unit: "seconds" },
-    status: "paused",
-  },
-];
+import { useSchedules, ScheduleFormData } from "@/hooks/use-schedules";
+import { useYouTubeAccountsSelect } from "@/hooks/use-youtube-accounts-select";
 
 // Form schema
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  comment: z.string().min(1, "Comment text is required"),
-  videoIds: z.string().min(1, "At least one video ID is required"),
-  accounts: z.array(z.number()).min(1, "Select at least one account"),
-  startDate: z.date(),
-  startTime: z.string(),
-  repeatValue: z.coerce.number().min(1),
-  repeatUnit: z.enum(["minutes", "hours", "days"]),
-  delayValue: z.coerce.number().min(0),
-  delayUnit: z.enum(["seconds", "minutes"]),
+  commentTemplates: z.array(z.string()).min(1, "At least one comment template is required"),
+  targetVideos: z.array(z.object({
+    videoId: z.string().min(1, "Video ID is required"),
+    title: z.string().optional(),
+    channelId: z.string().optional(),
+    thumbnailUrl: z.string().optional(),
+  })).min(1, "At least one video ID is required"),
+  accountSelection: z.enum(["specific", "random", "round-robin"]),
+  selectedAccounts: z.array(z.string()).min(1, "Select at least one account"),
+  scheduleType: z.enum(["immediate", "once", "recurring", "interval"]),
+  startDate: z.date().optional(),
+  endDate: z.date().optional(),
+  cronExpression: z.string().optional(),
+  intervalValue: z.number().min(1).optional(),
+  intervalUnit: z.enum(["minutes", "hours", "days"]).optional(),
+  minDelay: z.number().min(0),
+  maxDelay: z.number().min(0),
+  betweenAccounts: z.number().min(0),
 });
 
 const CommentScheduler = () => {
-  const [planners, setPlanners] = useState(initialPlanners);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedPlannerId, setSelectedPlannerId] = useState<number | null>(null);
+  const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
+  const [videoInput, setVideoInput] = useState("");
+  const [commentInput, setCommentInput] = useState("");
+  
+  const { 
+    schedules, 
+    isLoading, 
+    error, 
+    createSchedule, 
+    updateSchedule, 
+    deleteSchedule, 
+    pauseSchedule, 
+    resumeSchedule 
+  } = useSchedules();
+  
+  const { accounts, isLoading: isLoadingAccounts } = useYouTubeAccountsSelect();
   
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       name: "",
-      comment: "",
-      videoIds: "",
-      accounts: [],
+      commentTemplates: [],
+      targetVideos: [],
+      accountSelection: "specific",
+      selectedAccounts: [],
+      scheduleType: "immediate",
       startDate: new Date(),
-      startTime: "12:00",
-      repeatValue: 1,
-      repeatUnit: "days",
-      delayValue: 30,
-      delayUnit: "seconds",
+      endDate: undefined,
+      cronExpression: "",
+      intervalValue: 1,
+      intervalUnit: "days",
+      minDelay: 30,
+      maxDelay: 180,
+      betweenAccounts: 300,
     },
   });
 
   const openCreateDialog = () => {
-    form.reset();
+    form.reset({
+      name: "",
+      commentTemplates: [],
+      targetVideos: [],
+      accountSelection: "specific",
+      selectedAccounts: [],
+      scheduleType: "immediate",
+      startDate: new Date(),
+      endDate: undefined,
+      cronExpression: "",
+      intervalValue: 1,
+      intervalUnit: "days",
+      minDelay: 30,
+      maxDelay: 180,
+      betweenAccounts: 300,
+    });
+    setVideoInput("");
+    setCommentInput("");
     setIsCreateDialogOpen(true);
   };
 
-  const openEditDialog = (id: number) => {
-    const planner = planners.find((p) => p.id === id);
-    if (!planner) return;
+  const openEditDialog = (id: string) => {
+    const schedule = schedules.find((s) => s._id === id);
+    if (!schedule) return;
 
+    setSelectedScheduleId(id);
+    setSelectedSchedule(schedule);
+    
+    // Transform the schedule data to match form structure
     form.reset({
-      name: planner.name,
-      comment: planner.comment,
-      videoIds: planner.videos.join(", "),
-      accounts: planner.accounts,
-      startDate: planner.startDate,
-      startTime: format(planner.startDate, "HH:mm"),
-      repeatValue: planner.repeatEvery.value,
-      repeatUnit: planner.repeatEvery.unit as any,
-      delayValue: planner.delay.value,
-      delayUnit: planner.delay.unit as any,
+      name: schedule.name,
+      commentTemplates: schedule.commentTemplates,
+      targetVideos: schedule.targetVideos,
+      accountSelection: schedule.accountSelection,
+      selectedAccounts: schedule.selectedAccounts.map(acc => acc._id),
+      scheduleType: schedule.schedule.type,
+      startDate: schedule.schedule.startDate ? new Date(schedule.schedule.startDate) : undefined,
+      endDate: schedule.schedule.endDate ? new Date(schedule.schedule.endDate) : undefined,
+      cronExpression: schedule.schedule.cronExpression,
+      intervalValue: schedule.schedule.interval?.value,
+      intervalUnit: schedule.schedule.interval?.unit,
+      minDelay: schedule.delays.minDelay,
+      maxDelay: schedule.delays.maxDelay,
+      betweenAccounts: schedule.delays.betweenAccounts,
     });
-
-    setSelectedPlannerId(id);
+    
     setIsEditDialogOpen(true);
   };
 
-  const handleSubmit = (data: z.infer<typeof formSchema>) => {
-    // Combine date and time
-    const [hours, minutes] = data.startTime.split(":").map(Number);
-    const startDate = new Date(data.startDate);
-    startDate.setHours(hours, minutes);
-
+  const addVideo = () => {
+    if (!videoInput.trim()) return;
+    
     // Process video IDs
-    const videos = data.videoIds
+    const videoIds = videoInput
       .split(/[\s,]+/)
       .map((id) => id.trim())
       .filter(Boolean);
+    
+    const currentVideos = form.getValues('targetVideos') || [];
+    
+    // Add new videos that don't already exist
+    const newVideos = videoIds
+      .filter(id => !currentVideos.some(v => v.videoId === id))
+      .map(id => ({ videoId: id }));
+    
+    if (newVideos.length > 0) {
+      form.setValue('targetVideos', [...currentVideos, ...newVideos]);
+      setVideoInput("");
+    }
+  };
+  
+  const removeVideo = (videoId: string) => {
+    const currentVideos = form.getValues('targetVideos') || [];
+    form.setValue(
+      'targetVideos', 
+      currentVideos.filter(v => v.videoId !== videoId)
+    );
+  };
+  
+  const addComment = () => {
+    if (!commentInput.trim()) return;
+    
+    const currentComments = form.getValues('commentTemplates') || [];
+    
+    if (!currentComments.includes(commentInput.trim())) {
+      form.setValue('commentTemplates', [...currentComments, commentInput.trim()]);
+      setCommentInput("");
+    }
+  };
+  
+  const removeComment = (comment: string) => {
+    const currentComments = form.getValues('commentTemplates') || [];
+    form.setValue(
+      'commentTemplates', 
+      currentComments.filter(c => c !== comment)
+    );
+  };
 
-    const newPlanner = {
-      id: planners.length + 1,
+  const handleSubmit = (data: z.infer<typeof formSchema>) => {
+    // Transform form data to API format
+    const scheduleData: ScheduleFormData = {
       name: data.name,
-      comment: data.comment,
-      videos,
-      accounts: data.accounts,
-      startDate,
-      repeatEvery: { value: data.repeatValue, unit: data.repeatUnit },
-      delay: { value: data.delayValue, unit: data.delayUnit },
-      status: "active",
+      commentTemplates: data.commentTemplates,
+      targetVideos: data.targetVideos,
+      accountSelection: data.accountSelection,
+      selectedAccounts: data.selectedAccounts,
+      schedule: {
+        type: data.scheduleType,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        cronExpression: data.cronExpression,
+        interval: data.scheduleType === 'interval' ? {
+          value: data.intervalValue || 1,
+          unit: data.intervalUnit || 'days'
+        } : undefined
+      },
+      delays: {
+        minDelay: data.minDelay,
+        maxDelay: data.maxDelay,
+        betweenAccounts: data.betweenAccounts
+      }
     };
 
-    setPlanners([...planners, newPlanner]);
+    createSchedule(scheduleData);
     setIsCreateDialogOpen(false);
-    toast.success("Planner created", {
-      description: `Comment scheduler "${data.name}" has been created.`,
-    });
   };
 
   const handleEditSubmit = (data: z.infer<typeof formSchema>) => {
-    if (!selectedPlannerId) return;
+    if (!selectedScheduleId) return;
 
-    // Combine date and time
-    const [hours, minutes] = data.startTime.split(":").map(Number);
-    const startDate = new Date(data.startDate);
-    startDate.setHours(hours, minutes);
+    // Transform form data to API format
+    const scheduleData: Partial<ScheduleFormData> = {
+      name: data.name,
+      commentTemplates: data.commentTemplates,
+      targetVideos: data.targetVideos,
+      accountSelection: data.accountSelection,
+      selectedAccounts: data.selectedAccounts,
+      schedule: {
+        type: data.scheduleType,
+        startDate: data.startDate,
+        endDate: data.endDate,
+        cronExpression: data.cronExpression,
+        interval: data.scheduleType === 'interval' ? {
+          value: data.intervalValue || 1,
+          unit: data.intervalUnit || 'days'
+        } : undefined
+      },
+      delays: {
+        minDelay: data.minDelay,
+        maxDelay: data.maxDelay,
+        betweenAccounts: data.betweenAccounts
+      }
+    };
 
-    // Process video IDs
-    const videos = data.videoIds
-      .split(/[\s,]+/)
-      .map((id) => id.trim())
-      .filter(Boolean);
-
-    setPlanners(
-      planners.map((planner) =>
-        planner.id === selectedPlannerId
-          ? {
-              ...planner,
-              name: data.name,
-              comment: data.comment,
-              videos,
-              accounts: data.accounts,
-              startDate,
-              repeatEvery: { value: data.repeatValue, unit: data.repeatUnit },
-              delay: { value: data.delayValue, unit: data.delayUnit },
-            }
-          : planner
-      )
-    );
-
+    updateSchedule({ id: selectedScheduleId, data: scheduleData });
     setIsEditDialogOpen(false);
-    setSelectedPlannerId(null);
-    toast.success("Planner updated", {
-      description: `Comment scheduler "${data.name}" has been updated.`,
-    });
+    setSelectedScheduleId(null);
   };
 
-  const togglePlannerStatus = (id: number) => {
-    setPlanners(
-      planners.map((planner) =>
-        planner.id === id
-          ? {
-              ...planner,
-              status: planner.status === "active" ? "paused" : "active",
-            }
-          : planner
-      )
+  const toggleScheduleStatus = (id: string, status: string) => {
+    if (status === 'active') {
+      pauseSchedule(id);
+    } else if (status === 'paused') {
+      resumeSchedule(id);
+    }
+  };
+
+  const handleDeleteSchedule = (id: string) => {
+    deleteSchedule(id);
+  };
+
+  // Reset schedule type fields when schedule type changes
+  useEffect(() => {
+    const scheduleType = form.watch('scheduleType');
+    
+    if (scheduleType === 'immediate') {
+      form.setValue('startDate', undefined);
+      form.setValue('endDate', undefined);
+      form.setValue('cronExpression', undefined);
+      form.setValue('intervalValue', undefined);
+      form.setValue('intervalUnit', undefined);
+    } else if (scheduleType === 'once') {
+      form.setValue('cronExpression', undefined);
+      form.setValue('intervalValue', undefined);
+      form.setValue('intervalUnit', undefined);
+    } else if (scheduleType === 'recurring') {
+      form.setValue('intervalValue', undefined);
+      form.setValue('intervalUnit', undefined);
+    } else if (scheduleType === 'interval') {
+      form.setValue('cronExpression', undefined);
+    }
+  }, [form.watch('scheduleType')]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <div className="text-center">
+          <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading schedules...</p>
+        </div>
+      </div>
     );
+  }
 
-    const planner = planners.find((p) => p.id === id);
-    const newStatus = planner?.status === "active" ? "paused" : "active";
-    
-    toast.success(`Planner ${newStatus}`, {
-      description: `Comment scheduler "${planner?.name}" is now ${newStatus}.`,
-    });
-  };
-
-  const deletePlanner = (id: number) => {
-    const plannerToDelete = planners.find((p) => p.id === id);
-    setPlanners(planners.filter((planner) => planner.id !== id));
-    
-    toast.success("Planner deleted", {
-      description: `Comment scheduler "${plannerToDelete?.name}" has been deleted.`,
-    });
-  };
+  if (error) {
+    return (
+      <Card className="text-center py-12">
+        <CardContent>
+          <div className="flex flex-col items-center space-y-4">
+            <AlertTriangle className="h-12 w-12 text-destructive" />
+            <h3 className="text-lg font-medium">Error loading schedules</h3>
+            <p className="text-sm text-muted-foreground max-w-md mx-auto">
+              {(error as Error).message || "An unexpected error occurred."}
+            </p>
+            <Button onClick={() => window.location.reload()}>Retry</Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -270,7 +357,7 @@ const CommentScheduler = () => {
         </Button>
       </div>
 
-      {planners.length === 0 ? (
+      {schedules.length === 0 ? (
         <Card className="text-center py-12">
           <CardContent>
             <div className="flex flex-col items-center space-y-4">
@@ -285,23 +372,31 @@ const CommentScheduler = () => {
         </Card>
       ) : (
         <div className="space-y-6">
-          {planners.map((planner) => (
-            <Card key={planner.id} className={cn(planner.status === "paused" && "opacity-70")}>
+          {schedules.map((schedule) => (
+            <Card key={schedule._id} className={cn(schedule.status !== "active" && "opacity-70")}>
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-xl">{planner.name}</CardTitle>
+                    <CardTitle className="text-xl">{schedule.name}</CardTitle>
                     <CardDescription>
-                      Starting {format(planner.startDate, "PPP 'at' h:mm a")}
+                      {schedule.schedule.startDate ? 
+                        `Starting ${format(new Date(schedule.schedule.startDate), "PPP 'at' h:mm a")}` : 
+                        schedule.schedule.type === 'immediate' ? 
+                          'Runs immediately' : 
+                          schedule.schedule.type === 'recurring' ? 
+                            `Runs on schedule: ${schedule.schedule.cronExpression}` : 
+                            schedule.schedule.type === 'interval' && schedule.schedule.interval ? 
+                              `Runs every ${schedule.schedule.interval.value} ${schedule.schedule.interval.unit}` : 
+                              'Schedule configuration'}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
-                    {planner.status === "active" ? (
+                    {schedule.status === "active" ? (
                       <Button
                         size="sm"
                         variant="outline"
                         className="text-orange-500 border-orange-200 bg-orange-50"
-                        onClick={() => togglePlannerStatus(planner.id)}
+                        onClick={() => toggleScheduleStatus(schedule._id, schedule.status)}
                       >
                         <PauseCircle className="mr-2 h-4 w-4" /> Pause
                       </Button>
@@ -310,7 +405,8 @@ const CommentScheduler = () => {
                         size="sm"
                         variant="outline"
                         className="text-green-500 border-green-200 bg-green-50"
-                        onClick={() => togglePlannerStatus(planner.id)}
+                        onClick={() => toggleScheduleStatus(schedule._id, schedule.status)}
+                        disabled={schedule.status === 'completed' || schedule.status === 'error'}
                       >
                         <PlayCircle className="mr-2 h-4 w-4" /> Resume
                       </Button>
@@ -318,14 +414,14 @@ const CommentScheduler = () => {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => openEditDialog(planner.id)}
+                      onClick={() => openEditDialog(schedule._id)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => deletePlanner(planner.id)}
+                      onClick={() => handleDeleteSchedule(schedule._id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -342,9 +438,13 @@ const CommentScheduler = () => {
                       <div className="space-y-4 pt-2">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
-                            <h4 className="text-sm font-medium mb-2">Comment Text</h4>
-                            <div className="bg-slate-50 rounded-md p-3 text-sm">
-                              {planner.comment}
+                            <h4 className="text-sm font-medium mb-2">Comment Templates ({schedule.commentTemplates.length})</h4>
+                            <div className="space-y-2">
+                              {schedule.commentTemplates.map((comment, idx) => (
+                                <div key={idx} className="bg-slate-50 rounded-md p-3 text-sm">
+                                  {comment}
+                                </div>
+                              ))}
                             </div>
                           </div>
                           <div>
@@ -353,48 +453,65 @@ const CommentScheduler = () => {
                               <li className="flex items-center gap-2">
                                 <CalendarIcon className="h-4 w-4 text-muted-foreground" />
                                 <span>
-                                  Repeats every {planner.repeatEvery.value}{" "}
-                                  {planner.repeatEvery.unit}
+                                  Type: {schedule.schedule.type}
+                                  {schedule.schedule.interval && 
+                                    ` (Every ${schedule.schedule.interval.value} ${schedule.schedule.interval.unit})`}
+                                  {schedule.schedule.cronExpression && 
+                                    ` (${schedule.schedule.cronExpression})`}
                                 </span>
                               </li>
                               <li className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
                                 <span>
-                                  {planner.delay.value} {planner.delay.unit} delay between accounts
+                                  Delay: {schedule.delays.minDelay}-{schedule.delays.maxDelay} seconds, 
+                                  {schedule.delays.betweenAccounts} seconds between accounts
                                 </span>
+                              </li>
+                            </ul>
+                            
+                            <h4 className="text-sm font-medium mt-4 mb-2">Progress</h4>
+                            <ul className="space-y-2 text-sm">
+                              <li>
+                                Total Comments: {schedule.progress.totalComments}
+                              </li>
+                              <li>
+                                Posted: {schedule.progress.postedComments}
+                              </li>
+                              <li>
+                                Failed: {schedule.progress.failedComments}
                               </li>
                             </ul>
                           </div>
                         </div>
                         
                         <div className="space-y-2">
-                          <h4 className="text-sm font-medium">Target Videos ({planner.videos.length})</h4>
+                          <h4 className="text-sm font-medium">Target Videos ({schedule.targetVideos.length})</h4>
                           <div className="flex flex-wrap gap-2">
-                            {planner.videos.map((videoId) => (
+                            {schedule.targetVideos.map((video) => (
                               <a
-                                key={videoId}
-                                href={`https://youtube.com/watch?v=${videoId}`}
+                                key={video.videoId}
+                                href={`https://youtube.com/watch?v=${video.videoId}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="text-xs bg-secondary px-2 py-1 rounded hover:bg-secondary/80"
                               >
-                                {videoId}
+                                {video.title || video.videoId}
                               </a>
                             ))}
                           </div>
                         </div>
                         
                         <div className="space-y-2">
-                          <h4 className="text-sm font-medium">YouTube Accounts ({planner.accounts.length})</h4>
+                          <h4 className="text-sm font-medium">YouTube Accounts ({schedule.selectedAccounts.length})</h4>
                           <div className="flex flex-wrap gap-2">
-                            {planner.accounts.map((accountId) => {
-                              const account = youtubeAccounts.find((a) => a.id === accountId);
-                              return account ? (
-                                <div key={accountId} className="text-xs bg-secondary px-2 py-1 rounded">
-                                  {account.email}
-                                </div>
-                              ) : null;
-                            })}
+                            {schedule.selectedAccounts.map((account) => (
+                              <div key={account._id} className="text-xs bg-secondary px-2 py-1 rounded">
+                                {account.channelTitle || account.email}
+                                {account.status !== 'active' && (
+                                  <span className="ml-1 text-amber-500">({account.status})</span>
+                                )}
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
@@ -407,7 +524,7 @@ const CommentScheduler = () => {
         </div>
       )}
 
-      {/* Create Planner Dialog */}
+      {/* Create Schedule Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader>
@@ -434,19 +551,114 @@ const CommentScheduler = () => {
                   )}
                 />
                 
+                <div className="space-y-2">
+                  <FormLabel>Comment Templates</FormLabel>
+                  <FormDescription>
+                    Add different comment texts. One will be randomly selected for each post.
+                  </FormDescription>
+                  
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Enter a comment template..." 
+                      value={commentInput}
+                      onChange={(e) => setCommentInput(e.target.value)}
+                    />
+                    <Button type="button" onClick={addComment} variant="secondary" className="shrink-0">Add</Button>
+                  </div>
+                  
+                  {form.getValues('commentTemplates')?.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {form.getValues('commentTemplates').map((comment, index) => (
+                        <div key={index} className="flex items-center justify-between bg-slate-50 rounded-md p-3 text-sm">
+                          <div className="flex-1 mr-2 break-all">{comment}</div>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => removeComment(comment)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {form.formState.errors.commentTemplates && (
+                    <p className="text-sm font-medium text-destructive">
+                      {form.formState.errors.commentTemplates.message}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <FormLabel>Target YouTube Videos</FormLabel>
+                  <FormDescription>
+                    Add video IDs to comment on.
+                  </FormDescription>
+                  
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Enter video IDs separated by commas" 
+                      value={videoInput}
+                      onChange={(e) => setVideoInput(e.target.value)}
+                    />
+                    <Button type="button" onClick={addVideo} variant="secondary" className="shrink-0">Add</Button>
+                  </div>
+                  
+                  {form.getValues('targetVideos')?.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {form.getValues('targetVideos').map((video) => (
+                        <div key={video.videoId} className="flex items-center justify-between bg-slate-50 rounded-md p-3 text-sm">
+                          <a 
+                            href={`https://youtube.com/watch?v=${video.videoId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 mr-2 hover:underline"
+                          >
+                            {video.title || video.videoId}
+                          </a>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => removeVideo(video.videoId)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {form.formState.errors.targetVideos && (
+                    <p className="text-sm font-medium text-destructive">
+                      {form.formState.errors.targetVideos.message}
+                    </p>
+                  )}
+                </div>
+                
                 <FormField
                   control={form.control}
-                  name="comment"
+                  name="accountSelection"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Comment Text</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter your comment here..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
+                      <FormLabel>Account Selection Strategy</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select strategy" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="specific">Use all selected accounts</SelectItem>
+                          <SelectItem value="random">Random account from selection</SelectItem>
+                          <SelectItem value="round-robin">Round-robin (one after another)</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -454,28 +666,7 @@ const CommentScheduler = () => {
                 
                 <FormField
                   control={form.control}
-                  name="videoIds"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>YouTube Video IDs</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter video IDs, separated by commas or new lines"
-                          className="min-h-[80px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        E.g., dQw4w9WgXcQ, 9bZkp7q19f0
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="accounts"
+                  name="selectedAccounts"
                   render={() => (
                     <FormItem>
                       <div className="mb-4">
@@ -484,195 +675,317 @@ const CommentScheduler = () => {
                           Select the accounts to post comments from.
                         </FormDescription>
                       </div>
-                      <div className="space-y-2">
-                        {youtubeAccounts.map((account) => (
-                          <FormField
-                            key={account.id}
-                            control={form.control}
-                            name="accounts"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={account.id}
-                                  className="flex flex-row items-start space-x-3 space-y-0 py-1"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(account.id)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([...field.value, account.id])
-                                          : field.onChange(
-                                              field.value?.filter(
-                                                (value) => value !== account.id
-                                              )
-                                            );
-                                      }}
-                                      disabled={account.status === "inactive"}
-                                    />
-                                  </FormControl>
-                                  <FormLabel className="font-normal">
-                                    {account.email}{" "}
-                                    {account.status === "inactive" && (
-                                      <span className="text-muted-foreground ml-2">(inactive)</span>
-                                    )}
-                                  </FormLabel>
-                                </FormItem>
-                              );
-                            }}
-                          />
-                        ))}
-                      </div>
+                      {isLoadingAccounts ? (
+                        <div className="text-center py-4">
+                          <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                          <p className="text-sm text-muted-foreground mt-2">Loading accounts...</p>
+                        </div>
+                      ) : accounts.length === 0 ? (
+                        <div className="text-center py-4 border rounded-md bg-muted/50">
+                          <p className="text-sm">No YouTube accounts available.</p>
+                          <Button 
+                            variant="link" 
+                            className="mt-1 h-auto p-0"
+                            onClick={() => window.location.href = '/accounts'}
+                          >
+                            Add YouTube accounts
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {accounts.map((account) => (
+                            <FormField
+                              key={account._id}
+                              control={form.control}
+                              name="selectedAccounts"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={account._id}
+                                    className="flex flex-row items-start space-x-3 space-y-0 py-1"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(account._id)}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? field.onChange([...field.value, account._id])
+                                            : field.onChange(
+                                                field.value?.filter(
+                                                  (value) => value !== account._id
+                                                )
+                                              );
+                                        }}
+                                        disabled={account.status !== "active"}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                      {account.channelTitle || account.email}{" "}
+                                      {account.status !== "active" && (
+                                        <span className="text-muted-foreground ml-2">({account.status})</span>
+                                      )}
+                                    </FormLabel>
+                                  </FormItem>
+                                );
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Start Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              initialFocus
-                              className="pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
+                <FormField
+                  control={form.control}
+                  name="scheduleType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Schedule Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select schedule type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="immediate">Immediate (run now)</SelectItem>
+                          <SelectItem value="once">One-time schedule</SelectItem>
+                          <SelectItem value="recurring">Recurring (cron schedule)</SelectItem>
+                          <SelectItem value="interval">Interval (every X minutes/hours/days)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {form.watch('scheduleType') !== 'immediate' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(form.watch('scheduleType') === 'once' || form.watch('scheduleType') === 'recurring') && (
+                      <FormField
+                        control={form.control}
+                        name="startDate"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Start Date</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                      "w-full pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "PPP")
+                                    ) : (
+                                      <span>Pick a date</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  initialFocus
+                                  className="pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
-                  
+                    
+                    <FormField
+                      control={form.control}
+                      name="endDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>End Date (Optional)</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                                className="pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormDescription>
+                            When the schedule should automatically stop
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+                
+                {form.watch('scheduleType') === 'recurring' && (
                   <FormField
                     control={form.control}
-                    name="startTime"
+                    name="cronExpression"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Start Time</FormLabel>
+                        <FormLabel>Cron Expression</FormLabel>
                         <FormControl>
-                          <Input type="time" {...field} />
+                          <Input placeholder="e.g., 0 12 * * *" {...field} />
                         </FormControl>
+                        <FormDescription>
+                          Format: minute hour day-of-month month day-of-week (e.g., 0 12 * * * for daily at noon)
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
+                )}
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <Label>Repeat Frequency</Label>
-                    <div className="flex gap-2">
-                      <FormField
-                        control={form.control}
-                        name="repeatValue"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
+                {form.watch('scheduleType') === 'interval' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="intervalValue"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Interval Value</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={1} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="intervalUnit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Interval Unit</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <Input type="number" min={1} {...field} />
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="repeatUnit"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select unit" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="minutes">Minutes</SelectItem>
-                                <SelectItem value="hours">Hours</SelectItem>
-                                <SelectItem value="days">Days</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                            <SelectContent>
+                              <SelectItem value="minutes">Minutes</SelectItem>
+                              <SelectItem value="hours">Hours</SelectItem>
+                              <SelectItem value="days">Days</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                  
-                  <div className="space-y-4">
-                    <Label>Delay Between Accounts</Label>
-                    <div className="flex gap-2">
-                      <FormField
-                        control={form.control}
-                        name="delayValue"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input type="number" min={0} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="delayUnit"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select unit" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="seconds">Seconds</SelectItem>
-                                <SelectItem value="minutes">Minutes</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                )}
+                
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Delay Settings</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="minDelay"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Min Delay (seconds)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Minimum wait before posting
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="maxDelay"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Max Delay (seconds)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Maximum wait before posting
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="betweenAccounts"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Between Accounts (seconds)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Wait between different accounts
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </div>
                 
                 <DialogFooter>
-                  <Button type="submit">Create Schedule</Button>
+                  <Button type="submit" disabled={isLoadingAccounts}>Create Schedule</Button>
                 </DialogFooter>
               </form>
             </Form>
@@ -680,7 +993,7 @@ const CommentScheduler = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Edit Planner Dialog */}
+      {/* Edit Schedule Dialog - very similar to create dialog with minor differences */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader>
@@ -693,7 +1006,7 @@ const CommentScheduler = () => {
           <ScrollArea className="max-h-[70vh] pr-4">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleEditSubmit)} className="space-y-6 py-4">
-                {/* Same form fields as create dialog */}
+                {/* Same form fields as create dialog with prefilled values */}
                 <FormField
                   control={form.control}
                   name="name"
@@ -708,19 +1021,114 @@ const CommentScheduler = () => {
                   )}
                 />
                 
+                <div className="space-y-2">
+                  <FormLabel>Comment Templates</FormLabel>
+                  <FormDescription>
+                    Add different comment texts. One will be randomly selected for each post.
+                  </FormDescription>
+                  
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Enter a comment template..." 
+                      value={commentInput}
+                      onChange={(e) => setCommentInput(e.target.value)}
+                    />
+                    <Button type="button" onClick={addComment} variant="secondary" className="shrink-0">Add</Button>
+                  </div>
+                  
+                  {form.getValues('commentTemplates')?.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {form.getValues('commentTemplates').map((comment, index) => (
+                        <div key={index} className="flex items-center justify-between bg-slate-50 rounded-md p-3 text-sm">
+                          <div className="flex-1 mr-2 break-all">{comment}</div>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => removeComment(comment)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {form.formState.errors.commentTemplates && (
+                    <p className="text-sm font-medium text-destructive">
+                      {form.formState.errors.commentTemplates.message}
+                    </p>
+                  )}
+                </div>
+                
+                <div className="space-y-2">
+                  <FormLabel>Target YouTube Videos</FormLabel>
+                  <FormDescription>
+                    Add video IDs to comment on.
+                  </FormDescription>
+                  
+                  <div className="flex gap-2">
+                    <Input 
+                      placeholder="Enter video IDs separated by commas" 
+                      value={videoInput}
+                      onChange={(e) => setVideoInput(e.target.value)}
+                    />
+                    <Button type="button" onClick={addVideo} variant="secondary" className="shrink-0">Add</Button>
+                  </div>
+                  
+                  {form.getValues('targetVideos')?.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      {form.getValues('targetVideos').map((video) => (
+                        <div key={video.videoId} className="flex items-center justify-between bg-slate-50 rounded-md p-3 text-sm">
+                          <a 
+                            href={`https://youtube.com/watch?v=${video.videoId}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex-1 mr-2 hover:underline"
+                          >
+                            {video.title || video.videoId}
+                          </a>
+                          <Button 
+                            type="button" 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => removeVideo(video.videoId)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  
+                  {form.formState.errors.targetVideos && (
+                    <p className="text-sm font-medium text-destructive">
+                      {form.formState.errors.targetVideos.message}
+                    </p>
+                  )}
+                </div>
+                
                 <FormField
                   control={form.control}
-                  name="comment"
+                  name="accountSelection"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Comment Text</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter your comment here..."
-                          className="min-h-[100px]"
-                          {...field}
-                        />
-                      </FormControl>
+                      <FormLabel>Account Selection Strategy</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select strategy" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="specific">Use all selected accounts</SelectItem>
+                          <SelectItem value="random">Random account from selection</SelectItem>
+                          <SelectItem value="round-robin">Round-robin (one after another)</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -728,28 +1136,7 @@ const CommentScheduler = () => {
                 
                 <FormField
                   control={form.control}
-                  name="videoIds"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>YouTube Video IDs</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Enter video IDs, separated by commas or new lines"
-                          className="min-h-[80px]"
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        E.g., dQw4w9WgXcQ, 9bZkp7q19f0
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="accounts"
+                  name="selectedAccounts"
                   render={() => (
                     <FormItem>
                       <div className="mb-4">
@@ -758,195 +1145,317 @@ const CommentScheduler = () => {
                           Select the accounts to post comments from.
                         </FormDescription>
                       </div>
-                      <div className="space-y-2">
-                        {youtubeAccounts.map((account) => (
-                          <FormField
-                            key={account.id}
-                            control={form.control}
-                            name="accounts"
-                            render={({ field }) => {
-                              return (
-                                <FormItem
-                                  key={account.id}
-                                  className="flex flex-row items-start space-x-3 space-y-0 py-1"
-                                >
-                                  <FormControl>
-                                    <Checkbox
-                                      checked={field.value?.includes(account.id)}
-                                      onCheckedChange={(checked) => {
-                                        return checked
-                                          ? field.onChange([...field.value, account.id])
-                                          : field.onChange(
-                                              field.value?.filter(
-                                                (value) => value !== account.id
-                                              )
-                                            );
-                                      }}
-                                      disabled={account.status === "inactive"}
-                                    />
-                                  </FormControl>
-                                  <FormLabel className="font-normal">
-                                    {account.email}{" "}
-                                    {account.status === "inactive" && (
-                                      <span className="text-muted-foreground ml-2">(inactive)</span>
-                                    )}
-                                  </FormLabel>
-                                </FormItem>
-                              );
-                            }}
-                          />
-                        ))}
-                      </div>
+                      {isLoadingAccounts ? (
+                        <div className="text-center py-4">
+                          <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                          <p className="text-sm text-muted-foreground mt-2">Loading accounts...</p>
+                        </div>
+                      ) : accounts.length === 0 ? (
+                        <div className="text-center py-4 border rounded-md bg-muted/50">
+                          <p className="text-sm">No YouTube accounts available.</p>
+                          <Button 
+                            variant="link" 
+                            className="mt-1 h-auto p-0"
+                            onClick={() => window.location.href = '/accounts'}
+                          >
+                            Add YouTube accounts
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          {accounts.map((account) => (
+                            <FormField
+                              key={account._id}
+                              control={form.control}
+                              name="selectedAccounts"
+                              render={({ field }) => {
+                                return (
+                                  <FormItem
+                                    key={account._id}
+                                    className="flex flex-row items-start space-x-3 space-y-0 py-1"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(account._id)}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? field.onChange([...field.value, account._id])
+                                            : field.onChange(
+                                                field.value?.filter(
+                                                  (value) => value !== account._id
+                                                )
+                                              );
+                                        }}
+                                        disabled={account.status !== "active"}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="font-normal">
+                                      {account.channelTitle || account.email}{" "}
+                                      {account.status !== "active" && (
+                                        <span className="text-muted-foreground ml-2">({account.status})</span>
+                                      )}
+                                    </FormLabel>
+                                  </FormItem>
+                                );
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField
-                    control={form.control}
-                    name="startDate"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                        <FormLabel>Start Date</FormLabel>
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <FormControl>
-                              <Button
-                                variant={"outline"}
-                                className={cn(
-                                  "w-full pl-3 text-left font-normal",
-                                  !field.value && "text-muted-foreground"
-                                )}
-                              >
-                                {field.value ? (
-                                  format(field.value, "PPP")
-                                ) : (
-                                  <span>Pick a date</span>
-                                )}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                              </Button>
-                            </FormControl>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar
-                              mode="single"
-                              selected={field.value}
-                              onSelect={field.onChange}
-                              initialFocus
-                              className="pointer-events-auto"
-                            />
-                          </PopoverContent>
-                        </Popover>
-                        <FormMessage />
-                      </FormItem>
+                <FormField
+                  control={form.control}
+                  name="scheduleType"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Schedule Type</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select schedule type" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="immediate">Immediate (run now)</SelectItem>
+                          <SelectItem value="once">One-time schedule</SelectItem>
+                          <SelectItem value="recurring">Recurring (cron schedule)</SelectItem>
+                          <SelectItem value="interval">Interval (every X minutes/hours/days)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {form.watch('scheduleType') !== 'immediate' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {(form.watch('scheduleType') === 'once' || form.watch('scheduleType') === 'recurring') && (
+                      <FormField
+                        control={form.control}
+                        name="startDate"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>Start Date</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                      "w-full pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "PPP")
+                                    ) : (
+                                      <span>Pick a date</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value}
+                                  onSelect={field.onChange}
+                                  initialFocus
+                                  className="pointer-events-auto"
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     )}
-                  />
-                  
+                    
+                    <FormField
+                      control={form.control}
+                      name="endDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>End Date (Optional)</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                initialFocus
+                                className="pointer-events-auto"
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormDescription>
+                            When the schedule should automatically stop
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                )}
+                
+                {form.watch('scheduleType') === 'recurring' && (
                   <FormField
                     control={form.control}
-                    name="startTime"
+                    name="cronExpression"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Start Time</FormLabel>
+                        <FormLabel>Cron Expression</FormLabel>
                         <FormControl>
-                          <Input type="time" {...field} />
+                          <Input placeholder="e.g., 0 12 * * *" {...field} />
                         </FormControl>
+                        <FormDescription>
+                          Format: minute hour day-of-month month day-of-week (e.g., 0 12 * * * for daily at noon)
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                </div>
+                )}
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <Label>Repeat Frequency</Label>
-                    <div className="flex gap-2">
-                      <FormField
-                        control={form.control}
-                        name="repeatValue"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
+                {form.watch('scheduleType') === 'interval' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="intervalValue"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Interval Value</FormLabel>
+                          <FormControl>
+                            <Input type="number" min={1} {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="intervalUnit"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Interval Unit</FormLabel>
+                          <Select onValueChange={field.onChange} defaultValue={field.value}>
                             <FormControl>
-                              <Input type="number" min={1} {...field} />
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select unit" />
+                              </SelectTrigger>
                             </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="repeatUnit"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select unit" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="minutes">Minutes</SelectItem>
-                                <SelectItem value="hours">Hours</SelectItem>
-                                <SelectItem value="days">Days</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                            <SelectContent>
+                              <SelectItem value="minutes">Minutes</SelectItem>
+                              <SelectItem value="hours">Hours</SelectItem>
+                              <SelectItem value="days">Days</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
-                  
-                  <div className="space-y-4">
-                    <Label>Delay Between Accounts</Label>
-                    <div className="flex gap-2">
-                      <FormField
-                        control={form.control}
-                        name="delayValue"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <FormControl>
-                              <Input type="number" min={0} {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      
-                      <FormField
-                        control={form.control}
-                        name="delayUnit"
-                        render={({ field }) => (
-                          <FormItem className="flex-1">
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select unit" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="seconds">Seconds</SelectItem>
-                                <SelectItem value="minutes">Minutes</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                )}
+                
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium">Delay Settings</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="minDelay"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Min Delay (seconds)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Minimum wait before posting
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="maxDelay"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Max Delay (seconds)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Maximum wait before posting
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="betweenAccounts"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Between Accounts (seconds)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Wait between different accounts
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                 </div>
                 
                 <DialogFooter>
-                  <Button type="submit">Save Changes</Button>
+                  <Button type="submit" disabled={isLoadingAccounts}>Save Changes</Button>
                 </DialogFooter>
               </form>
             </Form>

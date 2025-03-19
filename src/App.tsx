@@ -11,7 +11,6 @@ import CommentScheduler from "./pages/CommentScheduler";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
-import Index from "./pages/Index";
 
 const App = () => (
   <TooltipProvider>
@@ -26,7 +25,7 @@ const App = () => (
             <Route index element={<Dashboard />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="accounts" element={<Accounts />} />
-            <Route path="scheduler" element={<Index />} />
+            <Route path="scheduler" element={<CommentScheduler />} />
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
