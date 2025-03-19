@@ -1,10 +1,9 @@
 
 import { toast } from "sonner";
+import { api } from "./api-client";
 
 // YouTube API credentials
 const API_KEY = import.meta.env.VITE_API_KEY;
-const OAUTH_CLIENT_ID = import.meta.env.VITE_OAUTH_CLIENT_ID;
-
 const SCOPES = [
   "https://www.googleapis.com/auth/youtube.force-ssl",
   "https://www.googleapis.com/auth/youtube.readonly"
@@ -96,133 +95,26 @@ export const initializeAPIs = async (): Promise<void> => {
   }
 };
 
-// Get the signed-in user's channel info
-export const getChannelInfo = async (): Promise<{
-  channelId: string;
-  title: string;
-  thumbnailUrl: string;
-  email: string;
-}> => {
+// Add or connect YouTube account through the server
+export const connectYouTubeAccount = async (credential: string, proxy?: string): Promise<any> => {
   try {
-    // Get the user's channel
-    const channelResponse = await window.gapi.client.youtube.channels.list({
-      part: "snippet,contentDetails",
-      mine: true,
+    console.log("YouTube API initialized successfully");
+    
+    // Send credential to server for processing
+    const response = await api.post("/accounts", {
+      credential,
+      proxy: proxy || undefined
     });
     
-    const channel = channelResponse.result.items?.[0];
-    if (!channel) {
-      throw new Error("No channel found for this account");
-    }
-    
-    // Get the user's email
-    const authInstance = window.gapi.auth2.getAuthInstance();
-    const user = authInstance.currentUser.get();
-    const profile = user.getBasicProfile();
-    const email = profile.getEmail();
-    
-    return {
-      channelId: channel.id,
-      title: channel.snippet.title,
-      thumbnailUrl: channel.snippet.thumbnails?.default?.url || "",
-      email,
-    };
-  } catch (error) {
-    console.error("Error fetching channel info", error);
-    throw error;
-  }
-};
-
-// Sign in the user with Google
-export const signInWithGoogle = async (): Promise<{
-  email: string;
-  accessToken: string;
-  channelInfo: {
-    channelId: string;
-    title: string;
-    thumbnailUrl: string;
-  };
-}> => {
-  try {
-    await initializeAPIs();
-    
-    // Load the auth2 library
-    if (!window.gapi.auth2) {
-      await new Promise<void>((resolve) => {
-        window.gapi.load("auth2", async () => {
-          await window.gapi.auth2.init({
-            client_id: OAUTH_CLIENT_ID,
-            scope: SCOPES.join(" "),
-          });
-          resolve();
-        });
-      });
-    }
-    
-    // Sign in with Google
-    const authInstance = window.gapi.auth2.getAuthInstance();
-    const googleUser = await authInstance.signIn({
-      scope: SCOPES.join(" "),
+    toast.success("YouTube account connected", {
+      description: "Your YouTube account has been successfully connected.",
     });
     
-    // Get auth response
-    const authResponse = googleUser.getAuthResponse();
-    const accessToken = authResponse.access_token;
-    
-    // Set the access token for API calls
-    window.gapi.client.setToken({
-      access_token: accessToken,
-    });
-    
-    // Get user channel info
-    const channelInfo = await getChannelInfo();
-    
-    return {
-      email: channelInfo.email,
-      accessToken,
-      channelInfo: {
-        channelId: channelInfo.channelId,
-        title: channelInfo.title,
-        thumbnailUrl: channelInfo.thumbnailUrl,
-      },
-    };
+    return response;
   } catch (error) {
-    console.error("Error signing in with Google", error);
-    if ((error as any).error === "popup_closed_by_user") {
-      toast.error("Sign-in cancelled", {
-        description: "You closed the Google sign-in popup.",
-      });
-    } else {
-      toast.error("Failed to sign in with Google", {
-        description: (error as Error).message || "Please try again later.",
-      });
-    }
-    throw error;
-  }
-};
-
-// Sign out the user
-export const signOutFromGoogle = async (): Promise<void> => {
-  try {
-    if (!window.gapi.auth2) {
-      await new Promise<void>((resolve) => {
-        window.gapi.load("auth2", async () => {
-          await window.gapi.auth2.init({
-            client_id: OAUTH_CLIENT_ID,
-          });
-          resolve();
-        });
-      });
-    }
-    
-    const authInstance = window.gapi.auth2.getAuthInstance();
-    await authInstance.signOut();
-    
-    console.log("User signed out");
-  } catch (error) {
-    console.error("Error signing out", error);
-    toast.error("Failed to sign out", {
-      description: "Please try again later.",
+    console.error("Error connecting YouTube account:", error);
+    toast.error("Failed to connect YouTube account", {
+      description: (error as Error).message || "Please try again later.",
     });
     throw error;
   }

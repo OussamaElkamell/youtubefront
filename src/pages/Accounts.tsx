@@ -1,4 +1,5 @@
 
+  
 import { useState } from "react";
 import { CheckCircle, XCircle, RefreshCw, Link, Trash2, Plus, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,10 +25,10 @@ import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useYouTubeAccounts, YouTubeAccount } from "@/hooks/use-youtube-accounts";
+import { useYouTubeAccounts } from "@/hooks/use-youtube-accounts";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { GoogleOAuthProvider, GoogleLogin } from "@react-oauth/google";
-import { jwtDecode } from "jwt-decode";
+import { initializeAPIs, connectYouTubeAccount } from "@/lib/youtube-api";
 
 const Accounts = () => {
   const { 
@@ -49,6 +50,10 @@ const Accounts = () => {
   const isMobile = useIsMobile();
   const [isGoogleAuthLoading, setIsGoogleAuthLoading] = useState(false);
   const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID;
+  useState(() => {
+    initializeAPIs().catch(console.error);
+  });
+
   const handleGoogleSignIn = async (authResult: { credential: string }) => {
     try {
       setIsGoogleAuthLoading(true);
@@ -57,22 +62,10 @@ const Accounts = () => {
         throw new Error("Authentication failed - no credential received");
       }
       
-      // Decode the JWT token to get user info
-      const decodedToken: any = jwtDecode(authResult.credential);
-      console.log("Decoded token:", decodedToken);
+      const response = await connectYouTubeAccount(authResult.credential, proxyValue);
       
-      if (!decodedToken.email) {
-        throw new Error("Email not found in the decoded token");
-      }
-      
-      // Here we're getting the tokens from Google's response
-      // In a real implementation, we'd exchange this credential for 
-      // proper OAuth tokens on the backend, but for simplicity:
-      addAccount({
-        email: decodedToken.email,
-        accessToken: authResult.credential, // This is just a placeholder
-        refreshToken: "refresh_token", // This is just a placeholder
-        proxy: proxyValue || undefined
+      toast.success("YouTube account connected", {
+        description: "Your YouTube account has been successfully connected.",
       });
       
       setIsAddAccountOpen(false);
@@ -464,4 +457,4 @@ const Accounts = () => {
   );
 };
 
-export default Accounts;
+export default Accounts
