@@ -6,13 +6,8 @@ import { componentTagger } from "lovable-tagger";
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
   server: {
-    proxy: {
-      "/api": {
-        target: "https://youtubebackendd.vercel.app",
-        changeOrigin: true,
-        secure: false,
-      },
-    },
+    host: "::",
+    port: 4000,
   },
   plugins: [
     react(),

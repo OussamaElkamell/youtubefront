@@ -2,7 +2,7 @@
 import { toast } from "sonner";
 
 // Base API URL - update this to match your server
-const API_BASE_URL = "https://youtubebackendd.vercel.app/";
+const API_BASE_URL ="https://youtubebackendd.vercel.app/api";
 
 // Get the JWT token from localStorage
 const getToken = () => localStorage.getItem("token");
