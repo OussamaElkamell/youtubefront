@@ -58,6 +58,19 @@ const apiRequest = async (
     throw error;
   }
 };
+export const authApi = {
+  logout: async () => {
+    try {
+      await api.post<{ message: string }>("/auth/logout"); // Adjust the endpoint as per your backend
+    } catch (error) {
+      console.error("Logout failed:", error);
+    } finally {
+      localStorage.removeItem("token");
+      toast.success("Logged out successfully");
+      window.location.href = "/login"; // Redirect to login page
+    }
+  },
+};
 
 // API client methods
 export const api = {
@@ -97,4 +110,5 @@ export const schedulerApi = {
   pause: (id: string) => api.post<{ schedule: any, message: string }>(`/scheduler/${id}/pause`),
   resume: (id: string) => api.post<{ schedule: any, message: string }>(`/scheduler/${id}/resume`),
   getSummary: () => api.get<{ schedulers: any }>("/scheduler/summary"),
+  
 };
