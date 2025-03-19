@@ -36,7 +36,7 @@ export const useDashboardStats = () => {
       
       try {
         // Fetch comments data for the last 7 days
-        const commentsResponse = await api.get<{ comments: any[] }>("/comments/stats");
+        const commentsResponse = await api.get<{ comments: any[] }>("/comments");
         
         // Fetch API quota usage
         const quotaResponse = await api.get<{ quota: any }>("/accounts/quota");
