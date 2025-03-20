@@ -184,10 +184,12 @@ const CommentScheduler = () => {
     
     const currentVideos = form.getValues('targetVideos') || [];
     
-    // Add new videos that don't already exist
+    // Ensure videoId is required by explicitly setting it in each new video object
     const newVideos = videoIds
       .filter(id => !currentVideos.some(v => v.videoId === id))
-      .map(id => ({ videoId: id }));
+      .map(id => ({ 
+        videoId: id // Make sure videoId is explicitly set
+      }));
     
     if (newVideos.length > 0) {
       form.setValue('targetVideos', [...currentVideos, ...newVideos]);
@@ -455,7 +457,7 @@ const CommentScheduler = () => {
                                 <span>
                                   Type: {schedule.schedule.type}
                                   {schedule.schedule.interval && 
-                                    ` (Every ${schedule.schedule.interval.value} ${schedule.schedule.interval.unit})`}
+                                    ` (Every ${schedule.schedule.interval.value || 1} ${schedule.schedule.interval.unit || 'minutes'})`}
                                   {schedule.schedule.cronExpression && 
                                     ` (${schedule.schedule.cronExpression})`}
                                 </span>
@@ -881,7 +883,12 @@ const CommentScheduler = () => {
                         <FormItem>
                           <FormLabel>Interval Value</FormLabel>
                           <FormControl>
-                            <Input type="number" min={1} {...field} />
+                            <Input 
+                              type="number" 
+                              min={1} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 1)} 
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -975,7 +982,7 @@ const CommentScheduler = () => {
                             />
                           </FormControl>
                           <FormDescription>
-                            Wait between different accounts
+                            Delay between each account
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -985,28 +992,31 @@ const CommentScheduler = () => {
                 </div>
                 
                 <DialogFooter>
-                  <Button type="submit" disabled={isLoadingAccounts}>Create Schedule</Button>
+                  <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Create Schedule</Button>
                 </DialogFooter>
               </form>
             </Form>
           </ScrollArea>
         </DialogContent>
       </Dialog>
-
-      {/* Edit Schedule Dialog - very similar to create dialog with minor differences */}
+      
+      {/* Edit Schedule Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>Edit Comment Schedule</DialogTitle>
             <DialogDescription>
-              Update your comment scheduler settings.
+              Modify your automated comment schedule.
             </DialogDescription>
           </DialogHeader>
           
           <ScrollArea className="max-h-[70vh] pr-4">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(handleEditSubmit)} className="space-y-6 py-4">
-                {/* Same form fields as create dialog with prefilled values */}
+                {/* Same form fields as Create dialog */}
                 <FormField
                   control={form.control}
                   name="name"
@@ -1351,7 +1361,12 @@ const CommentScheduler = () => {
                         <FormItem>
                           <FormLabel>Interval Value</FormLabel>
                           <FormControl>
-                            <Input type="number" min={1} {...field} />
+                            <Input 
+                              type="number" 
+                              min={1} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value) || 1)}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1364,7 +1379,7 @@ const CommentScheduler = () => {
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Interval Unit</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <Select onValueChange={field.onChange} defaultValue={field.value || "minutes"}>
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select unit" />
@@ -1445,7 +1460,7 @@ const CommentScheduler = () => {
                             />
                           </FormControl>
                           <FormDescription>
-                            Wait between different accounts
+                            Delay between each account
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -1455,7 +1470,10 @@ const CommentScheduler = () => {
                 </div>
                 
                 <DialogFooter>
-                  <Button type="submit" disabled={isLoadingAccounts}>Save Changes</Button>
+                  <Button type="button" variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Update Schedule</Button>
                 </DialogFooter>
               </form>
             </Form>
