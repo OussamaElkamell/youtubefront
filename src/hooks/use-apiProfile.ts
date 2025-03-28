@@ -20,6 +20,7 @@ export const useApiProfiles = () => {
   const [error, setError] = useState<Error | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [isSettingActive, setIsSettingActive] = useState(false);
+  const API_BASE_URL = import.meta.env.VITE_API_URL;
   const getAuthHeader = () => {
     const token = localStorage.getItem('token');
     return token ? { 'Authorization': `Bearer ${token}` } : {};
@@ -29,7 +30,7 @@ export const useApiProfiles = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:8000/api/profiles', {
+      const response = await fetch(`${API_BASE_URL}/profiles`, {
         headers: {
           ...getAuthHeader(),
           'Content-Type': 'application/json'
@@ -54,7 +55,7 @@ export const useApiProfiles = () => {
     setIsCreating(true);
     setError(null);
     try {
-      const response = await fetch('http://localhost:8000/api/profiles', {
+      const response = await fetch(`${API_BASE_URL}/profiles`, {
         method: 'POST',
         headers: {
           ...getAuthHeader(),
