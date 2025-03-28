@@ -82,7 +82,7 @@ export const useApiProfiles = () => {
 
   const updateProfile = async (id: string, profileData: Partial<ApiProfile>) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/profiles/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/profiles/${id}`, {
         method: 'PUT',
         headers: {
           ...getAuthHeader(),
@@ -107,7 +107,7 @@ export const useApiProfiles = () => {
 
   const deleteProfile = async (id: string) => {
     try {
-      const response = await fetch(`http://localhost:8000/api/profiles/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/profiles/${id}`, {
         method: 'DELETE',
         headers: getAuthHeader()
       });
@@ -128,7 +128,7 @@ export const useApiProfiles = () => {
     setIsSettingActive(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8000/api/profiles/${id}/set-active`, {
+      const response = await fetch(`${API_BASE_URL}/${id}/set-active`, {
         method: 'POST',
         headers: getAuthHeader()
       });
