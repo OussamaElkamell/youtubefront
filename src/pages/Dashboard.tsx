@@ -112,7 +112,7 @@ console.log("stats",stats);
       </div>
     ) : (
       <>
-        <div className="space-y-2">
+        {/*<div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span>Comments</span>
             <span>{stats?.apiQuotaUsage.comments.toLocaleString()} units</span>
@@ -135,16 +135,16 @@ console.log("stats",stats);
           </div>
           <Progress value={(stats?.apiQuotaUsage.videoData || 0) / (stats?.apiQuotaUsage.limit || 10000) * 100} className="h-2" />
         </div>
-        
+        */}
         <div className="pt-4 border-t">
           <div className="flex justify-between font-medium">
             <span>Total Used</span>
             <span>
-              {stats?.apiQuotaUsage.total.toLocaleString()} / {stats?.apiQuotaUsage.limit.toLocaleString()} units 
-              ({Math.round((stats?.apiQuotaUsage.total || 0) / (stats?.apiQuotaUsage.limit || 10000) * 100)}%)
+              {stats?.apiQuotaUsage.total.toLocaleString() ??10000} / {stats?.apiQuotaUsage.limit.toLocaleString()??10000} units 
+              ({Math.round((stats?.apiQuotaUsage.total ?? 10000) / (stats?.apiQuotaUsage.limit ?? 10000) * 100)}%)
             </span>
           </div>
-          <Progress value={(stats?.apiQuotaUsage.total || 0) / (stats?.apiQuotaUsage.limit || 10000) * 100} className="h-3 mt-2" />
+          <Progress value={(stats?.apiQuotaUsage.total ?? 10000) / (stats?.apiQuotaUsage.limit?? 10000) * 100} className="h-3 mt-2" />
         </div>
       </>
     )}

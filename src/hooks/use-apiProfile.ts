@@ -128,7 +128,7 @@ export const useApiProfiles = () => {
     setIsSettingActive(true);
     setError(null);
     try {
-      const response = await fetch(`${API_BASE_URL}/${id}/set-active`, {
+      const response = await fetch(`${API_BASE_URL}/profiles/${id}/set-active`, {
         method: 'POST',
         headers: getAuthHeader()
       });

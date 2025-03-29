@@ -77,7 +77,7 @@ const Accounts = () => {
   let AUTH_URL = '';
 
   if (activeProfile) {
-    AUTH_URL = `https://accounts.google.com/o/oauth2/auth?client_id=${activeProfile.clientId}&redirect_uri=${activeProfile.redirectUri}&response_type=code&scope=openid email profile https://www.googleapis.com/auth/youtube.force-ssl&access_type=offline&prompt=select_account`;
+    AUTH_URL = `https://accounts.google.com/o/oauth2/auth?client_id=${activeProfile.clientId}&redirect_uri=${activeProfile.redirectUri}&response_type=code&scope=openid email profile https://www.googleapis.com/auth/youtube.force-ssl&access_type=offline&&prompt=consent`;
   } else {
     console.error("No active profile found. Cannot generate AUTH_URL.");
   }
@@ -126,10 +126,28 @@ const handleUpdateProfile = async (id: string, profileData: Partial<ApiProfile>)
     setIsUpdating(false);
   }
 };
-  const handleDeleteAccount = (id: string) => {
-    removeAccount(id);
-  };
-  
+const handleDeleteAccount = async (id: string) => {
+  const refreshToken = localStorage.getItem("refresh_token");
+
+  if (refreshToken) {
+    try {
+      await fetch("https://oauth2.googleapis.com/revoke", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ token: refreshToken }),
+      });
+
+      console.log("Refresh token revoked successfully");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("access_token");
+    } catch (error) {
+      console.error("Error revoking refresh token:", error);
+    }
+  }
+
+  removeAccount(id);
+};
+
     
   const openProxyDialog = (id: string) => {
     const account = accounts.find((a) => a._id === id);

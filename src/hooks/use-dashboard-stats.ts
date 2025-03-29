@@ -32,14 +32,15 @@ export const useDashboardStats = () => {
     queryFn: async (): Promise<DashboardStats> => {
       const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const today = new Date();
-      
+      let quotaResponse: { quota: any; };
       try {
         // Fetch comments data
         const commentsResponse = await api.get<{ comments: any[] }>("/comments");
 
         // Fetch API quota usage
-        const quotaResponse = await api.get<{ quota: any }>("/accounts/quota/quota");
-
+        quotaResponse = await api.get<{ quota: any }>("/accounts/quota/quota");
+        console.log("quotaResponse", quotaResponse.quota.usedQuota);
+        
         // Fetch scheduler data
         const schedulersResponse = await api.get<{ schedules: any[] }>("/scheduler");
 
@@ -80,11 +81,11 @@ export const useDashboardStats = () => {
           inactiveAccounts,
           totalComments,
           apiQuotaUsage: {
-            comments: quotaResponse.quota.usedQuota || 0,
+            comments: quotaResponse.quota.usedQuota,
             accountManagement: 0, // Add this if needed in your response
             videoData: 0, // Add this if needed in your response
-            total: quotaResponse.quota.usedQuota || 0,
-            limit: quotaResponse.quota.totalQuota || 10000
+            total: quotaResponse.quota.usedQuota ?? 10000,
+            limit: quotaResponse.quota.totalQuota 
           },
           schedulers: {
             total: schedulersResponse.schedules.length || 0,
@@ -104,7 +105,7 @@ export const useDashboardStats = () => {
             comments: 0,
             accountManagement: 0,
             videoData: 0,
-            total: 0,
+            total: quotaResponse.quota.usedQuota ?? 10000,
             limit: 10000
           },
           schedulers: {
