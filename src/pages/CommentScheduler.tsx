@@ -614,12 +614,12 @@ const CommentScheduler = () => {
                 <div className="space-y-2">
                   <FormLabel>Target YouTube Videos</FormLabel>
                   <FormDescription>
-                    Add video IDs to comment on.
+                    Add video Urls to comment on.
                   </FormDescription>
                   
                   <div className="flex gap-2">
                     <Input 
-                      placeholder="Enter video IDs separated by commas" 
+                      placeholder="Enter video Urls separated by commas" 
                       value={videoInput}
                       onChange={(e) => setVideoInput(e.target.value)}
                     />
@@ -1118,7 +1118,7 @@ const CommentScheduler = () => {
                   
                   <div className="flex gap-2">
                     <Input 
-                      placeholder="Enter video IDs separated by commas" 
+                      placeholder="Enter video urls separated by commas" 
                       value={videoInput}
                       onChange={(e) => setVideoInput(e.target.value)}
                     />
