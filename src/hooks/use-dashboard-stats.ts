@@ -35,7 +35,10 @@ export const useDashboardStats = () => {
       let quotaResponse: { quota: any; };
       try {
         // Fetch comments data
-        const commentsResponse = await api.get<{ comments: any[] }>("/comments");
+        const commentsResponse = await api.get<{
+          pagination: any;
+          totalPostedLast7Days: any; comments: any[] 
+}>("/comments");
 
         // Fetch API quota usage
         quotaResponse = await api.get<{ quota: any }>("/accounts/quota/quota");
@@ -70,7 +73,8 @@ export const useDashboardStats = () => {
         const inactiveAccounts = accounts.length - activeAccounts;
 
         // Total Comments Count
-        const totalComments = commentsResponse.comments.filter(comment => comment.status === "posted").length;
+        const totalComments = commentsResponse.pagination.totalPostedLast7Days;
+console.log("total comments",commentsResponse);
 
         // Extract running schedules
         const runningSchedules = schedulersResponse.schedules.filter(schedule => schedule.status === "active").length;
