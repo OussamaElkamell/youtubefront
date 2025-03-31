@@ -80,6 +80,7 @@ const formSchema = z.object({
   minDelay: z.number().min(0),
   maxDelay: z.number().min(0),
   betweenAccounts: z.number().min(0),
+
 });
 
 const CommentScheduler = () => {
@@ -168,6 +169,7 @@ const CommentScheduler = () => {
       minDelay: schedule.delays.minDelay,
       maxDelay: schedule.delays.maxDelay,
       betweenAccounts: schedule.delays.betweenAccounts,
+   
     });
     
     setIsEditDialogOpen(true);
@@ -259,7 +261,9 @@ const CommentScheduler = () => {
         minDelay: data.minDelay,
         maxDelay: data.maxDelay,
         betweenAccounts: data.betweenAccounts
-      }
+      },
+      
+  
     };
 
     createSchedule(scheduleData);

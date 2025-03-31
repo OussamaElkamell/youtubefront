@@ -48,6 +48,8 @@ export type ScheduleType = {
     failedComments: number;
   };
   createdAt: Date;
+  
+
 };
 
 export type ScheduleFormData = {
@@ -82,6 +84,7 @@ export type ScheduleFormData = {
     maxDelay: number;
     betweenAccounts: number;
   };
+ 
 };
 
 export function useSchedules() {

@@ -129,21 +129,21 @@ const handleUpdateProfile = async (id: string, profileData: Partial<ApiProfile>)
 const handleDeleteAccount = async (id: string) => {
   const refreshToken = localStorage.getItem("refresh_token");
 
-  if (refreshToken) {
-    try {
-      await fetch("https://oauth2.googleapis.com/revoke", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ token: refreshToken }),
-      });
+  // if (refreshToken) {
+  //   try {
+  //     await fetch("https://oauth2.googleapis.com/revoke", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/x-www-form-urlencoded" },
+  //       body: new URLSearchParams({ token: refreshToken }),
+  //     });
 
-      console.log("Refresh token revoked successfully");
-      localStorage.removeItem("refresh_token");
-      localStorage.removeItem("access_token");
-    } catch (error) {
-      console.error("Error revoking refresh token:", error);
-    }
-  }
+  //     console.log("Refresh token revoked successfully");
+  //     localStorage.removeItem("refresh_token");
+  //     localStorage.removeItem("access_token");
+  //   } catch (error) {
+  //     console.error("Error revoking refresh token:", error);
+  //   }
+  // }
 
   removeAccount(id);
 };
