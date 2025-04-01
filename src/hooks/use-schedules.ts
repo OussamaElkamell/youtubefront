@@ -104,7 +104,8 @@ export function useSchedules() {
         limit: pagination.limit
       });
       return response;
-    }
+    },
+    refetchInterval: 5000,
   });
   
   // Create a new schedule
