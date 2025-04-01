@@ -121,7 +121,7 @@ console.log("total comments",commentsResponse);
       }
     },
     enabled: accounts.length > 0,
-   
+    refetchInterval: 5000,
   });
 
   return {

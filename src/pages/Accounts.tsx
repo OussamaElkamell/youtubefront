@@ -35,6 +35,7 @@ import { ApiProfileDialog } from "@/components/dialogs/AddProfileDialog";
 import { ProfileSelectionDialog } from "@/components/dialogs/ProfileSelectionDialog";
 import { api } from "@/lib/api-client";
 
+
 const Accounts = () => {
   const { 
     accounts, 
@@ -53,6 +54,8 @@ const Accounts = () => {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [proxyValue, setProxyValue] = useState("");
   const isMobile = useIsMobile();
+  const ITEMS_PER_PAGE = 5;
+const [currentPage, setCurrentPage] = useState(1);
   const {
     profiles,
 
@@ -353,91 +356,115 @@ const handleDeleteAccount = async (id: string) => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {accounts.map((account, index) => (
-              <TableRow key={account._id}>
-                <TableCell>{index + 1}</TableCell>
-                <TableCell>
-                  <div className="flex items-center">
-                    <Avatar className="mr-2 h-8 w-8">
-                      <AvatarImage src={account.thumbnailUrl} alt={account.channelTitle || account.email} />
-                      <AvatarFallback>
-                        {account.email.charAt(0).toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <div>
-                      <div className="font-medium">{account.channelTitle || account.email}</div>
-                      <div className="text-xs text-muted-foreground">{account.email}</div>
-                    </div>
-                  </div>
-                </TableCell>
-                <TableCell>
-                  {account.status === "active" ? (
+            {accounts
+              .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+              .map((account, index) => (
+                <TableRow key={account._id}>
+                  <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
+                  <TableCell>
                     <div className="flex items-center">
-                      <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
-                      <span>Active</span>
+                      <Avatar className="mr-2 h-8 w-8">
+                        <AvatarImage src={account.thumbnailUrl} alt={account.channelTitle || account.email} />
+                        <AvatarFallback>
+                          {account.email.charAt(0).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">{account.channelTitle || account.email}</div>
+                        <div className="text-xs text-muted-foreground">{account.email}</div>
+                      </div>
                     </div>
-                  ) : (
-                    <div className="flex items-center">
-                      <XCircle className="mr-2 h-4 w-4 text-red-500" />
-                      <span>Inactive</span>
+                  </TableCell>
+                  <TableCell>
+                    {account.status === "active" ? (
+                      <div className="flex items-center">
+                        <CheckCircle className="mr-2 h-4 w-4 text-green-500" />
+                        <span>Active</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center">
+                        <XCircle className="mr-2 h-4 w-4 text-red-500" />
+                        <span>Inactive</span>
+                      </div>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <span className="truncate max-w-[200px]">
+                      {account.proxy && account.proxy.host ? account.proxy.host : "None"}
+                    </span>
+                  </TableCell>
+                  <TableCell>{formatDate(account.connectedDate)}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => toggleAccountStatus(account._id)}
+                        title={account.status === "active" ? "Deactivate" : "Activate"}
+                      >
+                        <RefreshCw className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => openProxyDialog(account._id)}
+                        title="Assign Proxy"
+                      >
+                        <Link className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleDeleteAccount(account._id)}
+                        title="Delete Account"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
-                  )}
-                </TableCell>
-                <TableCell>
-                  <span className="truncate max-w-[200px]">
-                    {account.proxy && account.proxy.host ? account.proxy.host : "None"}
-                  </span>
-                </TableCell>
-                <TableCell>{formatDate(account.connectedDate)}</TableCell>
-                <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => toggleAccountStatus(account._id)}
-                      title={account.status === "active" ? "Deactivate" : "Activate"}
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => openProxyDialog(account._id)}
-                      title="Assign Proxy"
-                    >
-                      <Link className="h-4 w-4" />
-                    </Button>
-                    {/* <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleVerifyAccount(account._id)}
-                      title="Verify Account"
-                    >
-                      <CheckCircle className="h-4 w-4" />
-                    </Button> */}
-                    {/* <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleRefreshToken(account._id)}
-                      title="Refresh Token"
-                    >
-                      <RefreshCw className="h-4 w-4" />
-                    </Button> */}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => handleDeleteAccount(account._id)}
-                      title="Delete Account"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                </TableRow>
+              ))}
           </TableBody>
         </Table>
       </ScrollArea>
+      
+      {/* Pagination Controls */}
+      <div className="flex items-center justify-between px-4 py-2 border-t">
+        <div className="text-sm text-muted-foreground">
+          Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1}-
+          {Math.min(currentPage * ITEMS_PER_PAGE, accounts.length)} of {accounts.length} accounts
+        </div>
+        <div className="flex items-center space-x-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+            disabled={currentPage === 1}
+          >
+            Previous
+          </Button>
+          <div className="flex items-center space-x-1">
+            {Array.from({ length: Math.ceil(accounts.length / ITEMS_PER_PAGE) }, (_, i) => (
+              <Button
+                key={i + 1}
+                variant={currentPage === i + 1 ? "default" : "ghost"}
+                size="sm"
+                onClick={() => setCurrentPage(i + 1)}
+              >
+                {i + 1}
+              </Button>
+            ))}
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setCurrentPage(prev => Math.min(prev + 1, Math.ceil(accounts.length / ITEMS_PER_PAGE)))}
+            disabled={currentPage === Math.ceil(accounts.length / ITEMS_PER_PAGE)}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
     </div>
     
     );
