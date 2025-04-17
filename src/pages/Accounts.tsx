@@ -368,6 +368,7 @@ const handleDeleteAccount = async (id: string) => {
                 <TableHead>Status</TableHead>
                 <TableHead>Proxy</TableHead>
                 <TableHead>Connected Since</TableHead>
+                <TableHead>Last Message</TableHead> {/* New column for lastMessage */}
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -375,12 +376,10 @@ const handleDeleteAccount = async (id: string) => {
               {filteredAccounts
                 .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
                 .map((account, index) => {
-             
                   // Find the profile name using the profileId
-                  const profile = profiles.find(profile => profile.clientId === account?.google?.profileId?.clientId
-                  );
+                  const profile = profiles.find(profile => profile.clientId === account?.google?.profileId?.clientId);
                   const profileName = profile ? profile?.name : "Unknown"; // Fallback if profile is not found
-                  
+    
                   return (
                     <TableRow key={account._id}>
                       <TableCell>{(currentPage - 1) * ITEMS_PER_PAGE + index + 1}</TableCell>
@@ -419,26 +418,30 @@ const handleDeleteAccount = async (id: string) => {
                       </TableCell>
                       <TableCell>{formatDate(account.connectedDate)}</TableCell>
                       <TableCell>
+                        <span className="truncate max-w-[200px]">
+                          {account.lastMessage || "No message available"} {/* Show the lastMessage */}
+                        </span>
+                      </TableCell>
+                      <TableCell>
                         <div className="flex items-center gap-2">
-                        <Button
-  size="sm"
-  variant="ghost"
-  onClick={async () => {
-    try {
-      await toggleAccountStatus(account._id);
-      toast.success("Account status updated");
-    } catch (error: any) {
-      toast.error("Failed to toggle account", {
-        description: error?.message || "Please try reconnecting your account.",
-      });
-      let Account_Auth_url = `https://accounts.google.com/o/oauth2/auth?client_id=${account.google.clientId}&redirect_uri=${account.google.redirectUri}&response_type=code&scope=openid%20email%20profile%20https://www.googleapis.com/auth/youtube.force-ssl&access_type=offline&prompt=consent`;
-
-        window.location.href = Account_Auth_url;
-      
-    }
-  }}
-  className="h-8 px-2"
->
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={async () => {
+                              try {
+                                await toggleAccountStatus(account._id);
+                                toast.success("Account status updated");
+                              } catch (error: any) {
+                                toast.error("Failed to toggle account", {
+                                  description: error?.message || "Please try reconnecting your account.",
+                                });
+                                let Account_Auth_url = `https://accounts.google.com/o/oauth2/auth?client_id=${account.google.clientId}&redirect_uri=${account.google.redirectUri}&response_type=code&scope=openid%20email%20profile%20https://www.googleapis.com/auth/youtube.force-ssl&access_type=offline&prompt=consent`;
+    
+                                window.location.href = Account_Auth_url;
+                              }
+                            }}
+                            className="h-8 px-2"
+                          >
                             <RefreshCw className="h-4 w-4" />
                           </Button>
                           <Button
@@ -465,7 +468,7 @@ const handleDeleteAccount = async (id: string) => {
             </TableBody>
           </Table>
         </ScrollArea>
-  
+    
         {/* Pagination Controls */}
         <div className="flex items-center justify-between px-4 py-2 border-t">
           <div className="text-sm text-muted-foreground">
@@ -505,6 +508,7 @@ const handleDeleteAccount = async (id: string) => {
         </div>
       </div>
     );
+    
   };
 
   return (
