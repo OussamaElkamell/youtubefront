@@ -1,53 +1,90 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useYouTubeAccounts } from "./use-youtube-accounts";
+import { useMemo } from "react";
+
+// Define types for responses
+interface Comment {
+  postedAt: string;
+  status: string;
+}
+
+interface Profile {
+  usedQuota: number;
+  isActive: boolean;
+  status: string;
+  name: string;
+}
+
+interface Quota {
+  usedQuota: number;
+  totalQuota: number;
+}
+
+interface Scheduler {
+  status: string;
+  schedule: { nextRun: string };
+}
 
 interface DashboardStats {
   commentStats: {
     name: string;
     comments: number;
   }[];
-  activeAccounts: number;
-  inactiveAccounts: number;
   totalComments: number;
+  exceededProfiles: number;
   apiQuotaUsage: {
-    comments: number;
-    accountManagement: number;
-    videoData: number;
     total: number;
     limit: number;
+    totalProfiles: number;
+    exceededProfiles: number;
+    totalUsedQuota: number;
+    profiles: Array<{
+      name: string;
+      usedQuota: number;
+      status: string;
+      isActive: boolean;
+    }>;
   };
   schedulers: {
     total: number;
     dueToday: number;
-    running: number;  // Added for running schedules
+    running: number;
   };
+  profiles?: {
+    usedQuota: number;
+    totalQuota: number;
+  }[];
 }
 
 export const useDashboardStats = () => {
   const { accounts } = useYouTubeAccounts();
-  
+
+  const daysOfWeek = useMemo(() => ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], []);
+
   const { data, isLoading, error } = useQuery({
-    queryKey: ['dashboardStats'],
+    queryKey: ["dashboardStats"],
     queryFn: async (): Promise<DashboardStats> => {
-      const daysOfWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
       const today = new Date();
-      let quotaResponse: { quota: any; };
+      let quotaResponse: { quota: Quota };
+
+      const apiProfilesResponse = await api.get<{ profiles: Profile[] }>("/profiles");
+      const profiles = apiProfilesResponse.profiles || [];
+
+      const totalApiProfiles = profiles.length;
+      const totalUsedQuota = profiles.reduce((sum, p) => sum + (p.usedQuota || 0), 0);
+      const exceededProfiles = profiles.filter(p => p.status === "exceeded").length;
+
+      quotaResponse = await api.get<{ quota: Quota }>("/accounts/quota/quota");
+      const schedulersResponse = await api.get<{ schedules: Scheduler[] }>("/scheduler");
+
       try {
-        // Fetch comments data
         const commentsResponse = await api.get<{
           pagination: any;
-          totalPostedLast7Days: any; comments: any[] 
-}>("/comments");
+          totalPostedLast7Days: any;
+          comments: Comment[];
+        }>("/comments");
 
-        // Fetch API quota usage
-        quotaResponse = await api.get<{ quota: any }>("/accounts/quota/quota");
-        console.log("quotaResponse", quotaResponse.quota.usedQuota);
-        
-        // Fetch scheduler data
-        const schedulersResponse = await api.get<{ schedules: any[] }>("/scheduler");
-
-        // Process comments data
         const commentsByDate: Record<string, number> = {};
         commentsResponse.comments
           .filter(comment => comment.status === "posted")
@@ -56,44 +93,45 @@ export const useDashboardStats = () => {
             commentsByDate[dateStr] = (commentsByDate[dateStr] || 0) + 1;
           });
 
-        // Generate weekly comment stats
         const commentStats = daysOfWeek.map((day, index) => {
           const date = new Date();
           date.setDate(today.getDate() - (today.getDay() - index + 7) % 7);
           const dateStr = date.toISOString().split("T")[0];
-
           return {
             name: day,
             comments: commentsByDate[dateStr] || 0
           };
         });
 
-        // Calculate active/inactive accounts
-        const activeAccounts = accounts.filter(acc => acc.status === "active").length;
-        const inactiveAccounts = accounts.length - activeAccounts;
-
-        // Total Comments Count
         const totalComments = commentsResponse.pagination.totalPostedLast7Days;
-console.log("total comments",commentsResponse);
+        const runningSchedules = schedulersResponse.schedules.filter(
+          s => s.status === "active"
+        ).length;
 
-        // Extract running schedules
-        const runningSchedules = schedulersResponse.schedules.filter(schedule => schedule.status === "active").length;
+        const profilesData = profiles.map(profile => ({
+          name: profile.name,
+          usedQuota: profile.usedQuota,
+          status: profile.status,
+          isActive: profile.isActive,
+        }));
 
         return {
           commentStats,
-          activeAccounts,
-          inactiveAccounts,
           totalComments,
+          exceededProfiles,
           apiQuotaUsage: {
-            comments: quotaResponse.quota.usedQuota,
-            accountManagement: 0, // Add this if needed in your response
-            videoData: 0, // Add this if needed in your response
-            total: quotaResponse.quota.usedQuota ?? 10000,
-            limit: quotaResponse.quota.totalQuota 
+            total: quotaResponse.quota.usedQuota ?? 0,
+            limit: quotaResponse.quota.totalQuota ?? 10000,
+            totalProfiles: totalApiProfiles,
+            exceededProfiles,
+            totalUsedQuota,
+            profiles: profilesData
           },
           schedulers: {
             total: schedulersResponse.schedules.length || 0,
-            dueToday: schedulersResponse.schedules.filter(s => new Date(s.schedule.nextRun).toDateString() === today.toDateString()).length,
+            dueToday: schedulersResponse.schedules.filter(
+              s => new Date(s.schedule.nextRun).toDateString() === today.toDateString()
+            ).length,
             running: runningSchedules
           }
         };
@@ -102,15 +140,15 @@ console.log("total comments",commentsResponse);
 
         return {
           commentStats: daysOfWeek.map(day => ({ name: day, comments: 0 })),
-          activeAccounts: accounts.filter(acc => acc.status === "active").length,
-          inactiveAccounts: accounts.length - accounts.filter(acc => acc.status === "active").length,
           totalComments: 0,
+          exceededProfiles: 0,
           apiQuotaUsage: {
-            comments: 0,
-            accountManagement: 0,
-            videoData: 0,
-            total: quotaResponse.quota.usedQuota ?? 10000,
-            limit: 10000
+            total: 0,
+            limit: 10000,
+            totalProfiles: 0,
+            exceededProfiles: 0,
+            totalUsedQuota: 0,
+            profiles: []
           },
           schedulers: {
             total: 0,
@@ -120,8 +158,7 @@ console.log("total comments",commentsResponse);
         };
       }
     },
-    enabled: accounts.length > 0,
-    refetchInterval: 5000,
+    refetchInterval: 5000
   });
 
   return {

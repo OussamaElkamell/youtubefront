@@ -1,7 +1,25 @@
-
-import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { Calendar, MessageSquare, UserCheck, UserX } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import {
+  Calendar,
+  MessageSquare,
+  UserCheck,
+  UserX,
+} from "lucide-react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,47 +28,55 @@ import { useYouTubeAccounts } from "@/hooks/use-youtube-accounts";
 const Dashboard = () => {
   const { stats, isLoading } = useDashboardStats();
   const { accounts } = useYouTubeAccounts();
-console.log("stats",stats);
 
-  // Create stat cards with real data
+  const activeAccounts = accounts.filter((acc) => acc.status === "active").length;
+  const inactiveAccounts = accounts.filter((acc) => acc.status !== "active").length;
+
   const statCards = [
     {
       title: "Comments Posted",
-      value: isLoading ? "-" : stats?.totalComments.toString() || "0",
+      value: isLoading ? "-" : (stats?.totalComments ?? 0).toString(),
       change: "Past 7 days",
       icon: MessageSquare,
       iconClass: "text-blue-500 bg-blue-100",
     },
     {
       title: "Connected Accounts",
-      value: accounts.filter(acc => acc.status === "active").length.toString(),
-      change: `${accounts.filter(acc => acc.status !== "active").length} inactive`,
+      value: activeAccounts.toString(),
+      change: `${inactiveAccounts} inactive`,
       icon: UserCheck,
       iconClass: "text-green-500 bg-green-100",
     },
     {
       title: "Disconnected Accounts",
-      value: accounts.filter(acc => acc.status !== "active").length.toString(),
+      value: inactiveAccounts.toString(),
       change: "Requires reconnection",
       icon: UserX,
       iconClass: "text-red-500 bg-red-100",
     },
     {
       title: "Active Planners",
-      value: isLoading ? "-" : stats?.schedulers.total.toString() || "0",
-      change: `${isLoading ? "-" : stats?.schedulers.dueToday || 0} due today`,
+      value: isLoading ? "-" : (stats?.schedulers?.total ?? 0).toString(),
+      change: `${stats?.schedulers?.dueToday ?? 0} due today`,
       icon: Calendar,
       iconClass: "text-purple-500 bg-purple-100",
     },
   ];
 
+  const quotaUsed = stats?.apiQuotaUsage?.total ?? 0;
+  const quotaLimit = stats?.apiQuotaUsage?.limit ?? 10000;
+  const quotaPercent = Math.min((quotaUsed / quotaLimit) * 100, 100);
+
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Overview of your YouTube Auto Commenter activity</p>
+        <p className="text-muted-foreground">
+          Overview of your YouTube Auto Commenter activity
+        </p>
       </div>
 
+      {/* Stat Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((card, index) => (
           <Card key={index}>
@@ -70,7 +96,9 @@ console.log("stats",stats);
         ))}
       </div>
 
+      {/* Charts & API Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Comment Stats Chart */}
         <Card>
           <CardHeader>
             <CardTitle>Weekly Comment Activity</CardTitle>
@@ -84,7 +112,7 @@ console.log("stats",stats);
             ) : (
               <div className="h-[300px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={stats?.commentStats || []}>
+                  <BarChart data={stats?.commentStats ?? []}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" />
                     <YAxis />
@@ -97,60 +125,93 @@ console.log("stats",stats);
           </CardContent>
         </Card>
 
+        {/* API Quota Usage */}
         <Card>
-  <CardHeader>
-    <CardTitle>YouTube API Quota Usage</CardTitle>
-    <CardDescription>Daily API consumption (10,000 units limit)</CardDescription>
-  </CardHeader>
-  <CardContent className="space-y-6">
-    {isLoading ? (
-      <div className="space-y-4">
-        <Skeleton className="w-full h-8" />
-        <Skeleton className="w-full h-8" />
-        <Skeleton className="w-full h-8" />
-        <Skeleton className="w-full h-10" />
-      </div>
-    ) : (
-      <>
-        {/*<div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Comments</span>
-            <span>{stats?.apiQuotaUsage.comments.toLocaleString()} units</span>
-          </div>
-          <Progress value={(stats?.apiQuotaUsage.comments || 0) / (stats?.apiQuotaUsage.limit || 10000) * 100} className="h-2" />
-        </div>
-        
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Account Management</span>
-            <span>{stats?.apiQuotaUsage.accountManagement.toLocaleString()} units</span>
-          </div>
-          <Progress value={(stats?.apiQuotaUsage.accountManagement || 0) / (stats?.apiQuotaUsage.limit || 10000) * 100} className="h-2" />
-        </div>
-        
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span>Video Data</span>
-            <span>{stats?.apiQuotaUsage.videoData.toLocaleString()} units</span>
-          </div>
-          <Progress value={(stats?.apiQuotaUsage.videoData || 0) / (stats?.apiQuotaUsage.limit || 10000) * 100} className="h-2" />
-        </div>
-        */}
-        <div className="pt-4 border-t">
-          <div className="flex justify-between font-medium">
-            <span>Total Used</span>
-            <span>
-              {stats?.apiQuotaUsage.total.toLocaleString() ??10000} / {stats?.apiQuotaUsage.limit.toLocaleString()??10000} units 
-              ({Math.round((stats?.apiQuotaUsage.total ?? 10000) / (stats?.apiQuotaUsage.limit ?? 10000) * 100)}%)
-            </span>
-          </div>
-          <Progress value={(stats?.apiQuotaUsage.total ?? 10000) / (stats?.apiQuotaUsage.limit?? 10000) * 100} className="h-3 mt-2" />
-        </div>
-      </>
-    )}
-  </CardContent>
-</Card>
+          <CardHeader>
+            <CardTitle>YouTube API Quota Usage</CardTitle>
+            <CardDescription>Daily API consumption (10,000 units limit)</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {isLoading ? (
+              <div className="space-y-4">
+                <Skeleton className="w-full h-8" />
+                <Skeleton className="w-full h-8" />
+                <Skeleton className="w-full h-8" />
+                <Skeleton className="w-full h-10" />
+              </div>
+            ) : (
+              <>
+                <div className="pt-4 border-t">
+                  <div className="flex justify-between font-medium">
+                    <span>Total Used</span>
+                    <span>
+                      {quotaUsed.toLocaleString()} / {quotaLimit.toLocaleString()} units (
+                      {Math.round(quotaPercent)}%)
+                    </span>
+                  </div>
+                  <Progress value={quotaPercent} className="h-3 mt-2" />
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
 
+        {/* API Profiles Info */}
+        <Card>
+          <CardHeader>
+            <CardTitle>API Profiles</CardTitle>
+            <CardDescription>Statistics on your profiles</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            {isLoading ? (
+              <div className="space-y-4">
+                <Skeleton className="w-full h-8" />
+                <Skeleton className="w-full h-8" />
+                <Skeleton className="w-full h-8" />
+              </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Total Profiles</span>
+                    <span>{stats?.apiQuotaUsage?.totalProfiles ?? 0}</span>
+                  </div>
+                  <Progress value={(stats?.apiQuotaUsage?.totalProfiles ?? 0) / 100} className="h-2" />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Exceeded Profiles</span>
+                    <span>{stats?.apiQuotaUsage?.exceededProfiles ?? 0}</span>
+                  </div>
+                  <Progress value={(stats?.apiQuotaUsage?.exceededProfiles ?? 0) / 100} className="h-2" />
+                </div>
+
+                {/* Profile-wise Quota Breakdown */}
+                <div className="space-y-4 mt-4">
+                  <h3 className="text-sm font-medium">Profiles Quota Usage</h3>
+                  <div className="space-y-2">
+                    {(stats?.profiles ?? []).map((profile, index) => {
+                      const used = profile.usedQuota ?? 0;
+                      const total = profile.totalQuota ?? 1; // Avoid division by zero
+                      const percentage = (used / total) * 100;
+
+                      return (
+                        <div key={index} className="space-y-1">
+                          <div className="flex justify-between text-sm">
+                            <span>Profile {index + 1}</span>
+                            <span>{used} / {total} units</span>
+                          </div>
+                          <Progress value={percentage} className="h-2" />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
