@@ -418,10 +418,11 @@ const handleDeleteAccount = async (id: string) => {
                       </TableCell>
                       <TableCell>{formatDate(account.connectedDate)}</TableCell>
                       <TableCell>
-                        <span className="truncate max-w-[200px]">
-                          {account.lastMessage || "No message available"} {/* Show the lastMessage */}
-                        </span>
-                      </TableCell>
+  <span className="whitespace-normal break-words max-w-[100px]">
+    {account.lastMessage || "No message available"}
+  </span>
+</TableCell>
+
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <Button
