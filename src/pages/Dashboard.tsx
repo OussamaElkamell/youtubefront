@@ -24,14 +24,17 @@ import { Progress } from "@/components/ui/progress";
 import { useDashboardStats } from "@/hooks/use-dashboard-stats";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useYouTubeAccounts } from "@/hooks/use-youtube-accounts";
+import { useState } from "react";
 
 const Dashboard = () => {
-  const { stats, isLoading } = useDashboardStats();
+  const { stats, isLoading,clearComments } = useDashboardStats();
   const { accounts } = useYouTubeAccounts();
 
   const activeAccounts = accounts.filter((acc) => acc.status === "active").length;
   const inactiveAccounts = accounts.filter((acc) => acc.status !== "active").length;
+  const [isClearing, setIsClearing] = useState(false);
 
+  
   const statCards = [
     {
       title: "Comments Posted",
@@ -80,8 +83,11 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {statCards.map((card, index) => (
           <Card key={index}>
+            
             <CardHeader className="pb-2">
               <div className="flex justify-between items-start">
+
+
                 <CardTitle className="text-sm font-medium">{card.title}</CardTitle>
                 <div className={`p-2 rounded-full ${card.iconClass}`}>
                   <card.icon className="h-4 w-4" />
@@ -95,7 +101,14 @@ const Dashboard = () => {
           </Card>
         ))}
       </div>
-
+      <div className="flex justify-end">
+        <button
+          onClick={clearComments}
+          className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded"
+        >
+          Clear old posted Comments
+        </button>
+      </div>
       {/* Charts & API Cards */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Comment Stats Chart */}

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api-client";
 import { useYouTubeAccounts } from "./use-youtube-accounts";
 import { useMemo } from "react";
@@ -160,10 +160,27 @@ export const useDashboardStats = () => {
     },
     refetchInterval: 5000
   });
+  const clearCommentsMutation = useMutation({
+    mutationFn: async () => {
+      await api.delete("/comments"); // Your API endpoint to clear comments
+    },
+    onSuccess: () => {
+      console.log("Comments cleared successfully!");
+    },
+    onError: (error) => {
+      console.error("Error clearing comments:", error);
+    },
+  });
+
+  // Function to trigger comment clearing
+  const clearComments = () => {
+    clearCommentsMutation.mutate();
+  };
 
   return {
     stats: data,
     isLoading,
-    error
+    error,
+    clearComments
   };
 };
