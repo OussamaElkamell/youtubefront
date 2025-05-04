@@ -9,6 +9,7 @@ export interface ApiProfile {
     clientSecret: string;
     apiKey: string;
     redirectUri: string;
+    limitQuota?: number;
     isActive: boolean;
     createdAt: string;
     updatedAt: string;

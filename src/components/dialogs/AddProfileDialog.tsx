@@ -27,7 +27,8 @@ export const ApiProfileDialog = ({ open, onOpenChange }: ApiProfileDialogProps) 
     clientSecret: '',
     apiKey: '',
     redirectUri: 'http://localhost:4000/accounts',
-    isActive: false
+    isActive: false,
+    limitQuota: 10000,
   });
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -61,7 +62,8 @@ export const ApiProfileDialog = ({ open, onOpenChange }: ApiProfileDialogProps) 
         clientSecret: '',
         apiKey: '',
         redirectUri: 'http://localhost:4000/accounts',
-        isActive: false
+        isActive: false,
+        limitQuota:10000
       });
     } catch (err) {
       toast.error('Error Creating Profile', {
@@ -140,7 +142,18 @@ export const ApiProfileDialog = ({ open, onOpenChange }: ApiProfileDialogProps) 
               className="mt-2"
             />
           </div>
-          
+          <div>
+  <Label htmlFor="limitQuota">Quota Limit</Label>
+  <Input
+    id="limitQuota"
+    type="number"
+    placeholder="e.g. 10000"
+    value={formData.limitQuota}
+    onChange={handleInputChange}
+    className="mt-2"
+  />
+</div>
+
           <div className="flex items-center space-x-2">
             <input
               type="checkbox"

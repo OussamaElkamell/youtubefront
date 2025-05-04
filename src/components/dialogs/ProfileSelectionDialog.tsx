@@ -73,16 +73,17 @@ export const ProfileSelectionDialog = ({
       clientId: editingProfile.clientId,
       clientSecret: editingProfile.clientSecret,
       apiKey: editingProfile.apiKey,
-      redirectUri: editingProfile.redirectUri
+      redirectUri: editingProfile.redirectUri,
+      limitQuota: editingProfile.limitQuota,
     });
     setEditingProfile(null);
   };
 
-  const handleEditFieldChange = (field: keyof ApiProfile, value: string) => {
+  const handleEditFieldChange = (field: keyof ApiProfile, value: string | number) => {
     if (!editingProfile) return;
     setEditingProfile({
       ...editingProfile,
-      [field]: value
+      [field]: value,
     });
   };
 
@@ -133,6 +134,9 @@ export const ProfileSelectionDialog = ({
                           <p className="text-muted-foreground">API Key</p>
                           <p className="font-mono truncate">{profile.apiKey}</p>
                         </div>
+                      </div>
+                      <div className="text-xs text-muted-foreground pt-1">
+                        Quota: {profile.limitQuota ?? 'N/A'}
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
@@ -233,7 +237,7 @@ export const ProfileSelectionDialog = ({
           <DialogHeader>
             <DialogTitle>Edit API Profile</DialogTitle>
             <DialogDescription>
-              Update the profile credentials
+              Update the profile credentials and settings
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
@@ -243,7 +247,6 @@ export const ProfileSelectionDialog = ({
                 id="name"
                 value={editingProfile?.name || ''}
                 onChange={(e) => handleEditFieldChange('name', e.target.value)}
-                placeholder="Enter profile name"
               />
             </div>
             <div className="space-y-2">
@@ -252,7 +255,6 @@ export const ProfileSelectionDialog = ({
                 id="clientId"
                 value={editingProfile?.clientId || ''}
                 onChange={(e) => handleEditFieldChange('clientId', e.target.value)}
-                placeholder="Enter client ID"
               />
             </div>
             <div className="space-y-2">
@@ -261,7 +263,6 @@ export const ProfileSelectionDialog = ({
                 id="clientSecret"
                 value={editingProfile?.clientSecret || ''}
                 onChange={(e) => handleEditFieldChange('clientSecret', e.target.value)}
-                placeholder="Enter client secret"
               />
             </div>
             <div className="space-y-2">
@@ -270,7 +271,6 @@ export const ProfileSelectionDialog = ({
                 id="apiKey"
                 value={editingProfile?.apiKey || ''}
                 onChange={(e) => handleEditFieldChange('apiKey', e.target.value)}
-                placeholder="Enter API key"
               />
             </div>
             <div className="space-y-2">
@@ -279,7 +279,17 @@ export const ProfileSelectionDialog = ({
                 id="redirectUri"
                 value={editingProfile?.redirectUri || ''}
                 onChange={(e) => handleEditFieldChange('redirectUri', e.target.value)}
-                placeholder="Enter redirect URI"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quota">Quota</Label>
+              <Input
+                id="quota"
+                type="number"
+                value={editingProfile?.limitQuota ?? ''}
+                onChange={(e) =>
+                  handleEditFieldChange('limitQuota', parseInt(e.target.value || '0', 10))
+                }
               />
             </div>
           </div>
@@ -291,10 +301,7 @@ export const ProfileSelectionDialog = ({
             >
               Cancel
             </Button>
-            <Button
-              onClick={handleUpdateProfile}
-              disabled={isUpdating}
-            >
+            <Button onClick={handleUpdateProfile} disabled={isUpdating}>
               {isUpdating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
