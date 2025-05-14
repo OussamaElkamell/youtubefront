@@ -55,7 +55,7 @@ const Accounts = () => {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [proxyValue, setProxyValue] = useState("");
   const isMobile = useIsMobile();
-  const ITEMS_PER_PAGE = 5;
+  const ITEMS_PER_PAGE = 4;
 
   
 const [currentPage, setCurrentPage] = useState(1);
