@@ -501,12 +501,12 @@ const CommentScheduler = () => {
                                  every {schedule.delays.limitComments} posted comments to sleep
                                
                                 </span>
-                                <span>  Current sleep :{schedule.delays?.delayofsleep}</span>
+                             
                               </li>
                               <li className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
                            
-                                <span>  Current sleep :{schedule.delays?.delayofsleep}</span>
+                                <span>  Current sleep: {schedule.delays?.delayofsleep}</span>
                               </li>
                             </ul>
                             
