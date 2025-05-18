@@ -41,6 +41,7 @@ export type ScheduleType = {
     minDelay: number;
     maxDelay: number;
     betweenAccounts: number;
+    limitComments:number;
   };
   progress: {
     totalComments: number;
@@ -83,6 +84,7 @@ export type ScheduleFormData = {
     minDelay: number;
     maxDelay: number;
     betweenAccounts: number;
+    limitComments:number;
   };
  
 };

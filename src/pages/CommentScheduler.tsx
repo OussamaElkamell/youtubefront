@@ -79,6 +79,7 @@ const formSchema = z.object({
   intervalUnit: z.enum(["minutes", "hours", "days"]).optional(),
   minDelay: z.number().min(0),
   maxDelay: z.number().min(0),
+  limitComments:z.number().min(0),
   betweenAccounts: z.number().min(0),
 
 });
@@ -120,6 +121,7 @@ const CommentScheduler = () => {
       intervalUnit: "days",
       minDelay: 30,
       maxDelay: 180,
+      limitComments:0,
       betweenAccounts: 300,
     },
   });
@@ -139,6 +141,7 @@ const CommentScheduler = () => {
       intervalUnit: "days",
       minDelay: 30,
       maxDelay: 180,
+      limitComments:0,
       betweenAccounts: 300,
     });
     setVideoInput("");
@@ -168,6 +171,7 @@ const CommentScheduler = () => {
       intervalUnit: schedule.schedule.interval?.unit,
       minDelay: schedule.delays.minDelay,
       maxDelay: schedule.delays.maxDelay,
+      limitComments:schedule.delays.limitComments,
       betweenAccounts: schedule.delays.betweenAccounts,
    
     });
@@ -260,7 +264,8 @@ const CommentScheduler = () => {
       delays: {
         minDelay: data.minDelay,
         maxDelay: data.maxDelay,
-        betweenAccounts: data.betweenAccounts
+        betweenAccounts: data.betweenAccounts,
+        limitComments:data.limitComments
       },
       
   
@@ -298,7 +303,8 @@ const CommentScheduler = () => {
       delays: {
         minDelay: data.minDelay,
         maxDelay: data.maxDelay,
-        betweenAccounts: data.betweenAccounts
+        betweenAccounts: data.betweenAccounts,
+        limitComments:data.limitComments
       }
     };
 
@@ -410,8 +416,12 @@ const CommentScheduler = () => {
                           schedule.schedule.type === 'recurring' ? 
                             `Runs on schedule: ${schedule.schedule.cronExpression}` : 
                             schedule.schedule.type === 'interval' && schedule.schedule.interval ? 
-                              `Runs every ${schedule.schedule.interval.value} ${schedule.schedule.interval.unit}` : 
-                              'Schedule configuration'}
+                              `Runs every ${schedule.schedule.interval.value} ${schedule.schedule.interval.unit}. 
+                              Schedule Sleep: ${schedule.delays?.delayofsleep}` : 
+                              'Schedule configuration'
+                              
+                              }
+                              
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -487,8 +497,8 @@ const CommentScheduler = () => {
                               <li className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
                                 <span>
-                                  Delay: {schedule.delays.minDelay}-{schedule.delays.maxDelay} seconds, 
-                                  {schedule.delays.betweenAccounts} seconds between accounts
+                                  Delay: {schedule.delays.minDelay}-{schedule.delays.maxDelay} minutes, 
+                                 every {schedule.delays.limitComments} posted comments to sleep
                                 </span>
                               </li>
                             </ul>
@@ -966,12 +976,12 @@ const CommentScheduler = () => {
                 <div className="space-y-4">
                   <h3 className="text-sm font-medium">Delay Settings</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
+                         <FormField
                       control={form.control}
-                      name="minDelay"
+                      name="limitComments"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Min Delay (seconds)</FormLabel>
+                          <FormLabel>Number of comments</FormLabel>
                           <FormControl>
                             <Input 
                               type="number" 
@@ -981,7 +991,28 @@ const CommentScheduler = () => {
                             />
                           </FormControl>
                           <FormDescription>
-                            Minimum wait before posting
+                           number of posted comment to sleep
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="minDelay"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Min Delay of sleep (minutes)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Minimum wait before sleeping
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -993,7 +1024,7 @@ const CommentScheduler = () => {
                       name="maxDelay"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Max Delay (seconds)</FormLabel>
+                          <FormLabel>Max Delay of sleep (minutes)</FormLabel>
                           <FormControl>
                             <Input 
                               type="number" 
@@ -1003,14 +1034,14 @@ const CommentScheduler = () => {
                             />
                           </FormControl>
                           <FormDescription>
-                            Maximum wait before posting
+                            Maximum wait before sleeping
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     
-                    <FormField
+                    {/* <FormField
                       control={form.control}
                       name="betweenAccounts"
                       render={({ field }) => (
@@ -1030,7 +1061,7 @@ const CommentScheduler = () => {
                           <FormMessage />
                         </FormItem>
                       )}
-                    />
+                    /> */}
                   </div>
                 </div>
                 
@@ -1444,12 +1475,12 @@ const CommentScheduler = () => {
                 <div className="space-y-4">
                   <h3 className="text-sm font-medium">Delay Settings</h3>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
+                         <FormField
                       control={form.control}
-                      name="minDelay"
+                      name="limitComments"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Min Delay (seconds)</FormLabel>
+                          <FormLabel>Number of comments</FormLabel>
                           <FormControl>
                             <Input 
                               type="number" 
@@ -1459,7 +1490,28 @@ const CommentScheduler = () => {
                             />
                           </FormControl>
                           <FormDescription>
-                            Minimum wait before posting
+                           number of posted comment to sleep
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="minDelay"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Min Delay of sleep (minutes)</FormLabel>
+                          <FormControl>
+                            <Input 
+                              type="number" 
+                              min={0} 
+                              {...field} 
+                              onChange={(e) => field.onChange(parseInt(e.target.value))}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            Minimum wait before sleeping
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -1471,7 +1523,7 @@ const CommentScheduler = () => {
                       name="maxDelay"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Max Delay (seconds)</FormLabel>
+                          <FormLabel>Max Delay of sleep (minutes)</FormLabel>
                           <FormControl>
                             <Input 
                               type="number" 
@@ -1481,14 +1533,14 @@ const CommentScheduler = () => {
                             />
                           </FormControl>
                           <FormDescription>
-                            Maximum wait before posting
+                            Maximum wait before sleeping
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                     
-                    <FormField
+                    {/* <FormField
                       control={form.control}
                       name="betweenAccounts"
                       render={({ field }) => (
@@ -1508,8 +1560,9 @@ const CommentScheduler = () => {
                           <FormMessage />
                         </FormItem>
                       )}
-                    />
+                    /> */}
                   </div>
+                
                 </div>
                 
                 <DialogFooter>
