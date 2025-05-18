@@ -506,7 +506,7 @@ const CommentScheduler = () => {
                               <li className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
                            
-                                <span>  Current sleep: {schedule.delays?.delayofsleep}</span>
+                                <span>  Current sleep: {schedule.delays?.delayofsleep} minutes</span>
                               </li>
                             </ul>
                             
