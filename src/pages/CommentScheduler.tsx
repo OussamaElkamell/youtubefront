@@ -499,6 +499,7 @@ const CommentScheduler = () => {
                                 <span>
                                   Delay: {schedule.delays.minDelay}-{schedule.delays.maxDelay} minutes, 
                                  every {schedule.delays.limitComments} posted comments to sleep
+                                 Current sleep :${schedule.delays?.delayofsleep}
                                 </span>
                               </li>
                             </ul>
