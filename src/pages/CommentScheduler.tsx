@@ -58,6 +58,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useSchedules, ScheduleFormData } from "@/hooks/use-schedules";
 import { useYouTubeAccountsSelect } from "@/hooks/use-youtube-accounts-select";
+import SleepDelayTimer from "@/components/Customized/SleepDelayTimer";
 
 // Form schema
 const formSchema = z.object({
@@ -81,6 +82,7 @@ const formSchema = z.object({
   maxDelay: z.number().min(0),
   limitComments:z.number().min(0),
   betweenAccounts: z.number().min(0),
+  includeEmojis: z.boolean().optional(),
 
 });
 
@@ -91,7 +93,8 @@ const CommentScheduler = () => {
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [videoInput, setVideoInput] = useState("");
   const [commentInput, setCommentInput] = useState("");
-  
+
+
   const { 
     schedules, 
     isLoading, 
@@ -123,6 +126,7 @@ const CommentScheduler = () => {
       maxDelay: 180,
       limitComments:0,
       betweenAccounts: 300,
+      includeEmojis: false,
     },
   });
 
@@ -143,6 +147,7 @@ const CommentScheduler = () => {
       maxDelay: 180,
       limitComments:0,
       betweenAccounts: 300,
+      includeEmojis:false
     });
     setVideoInput("");
     setCommentInput("");
@@ -173,6 +178,7 @@ const CommentScheduler = () => {
       maxDelay: schedule.delays.maxDelay,
       limitComments:schedule.delays.limitComments,
       betweenAccounts: schedule.delays.betweenAccounts,
+      includeEmojis: schedule.includeEmojis,
    
     });
     
@@ -267,6 +273,7 @@ const CommentScheduler = () => {
         betweenAccounts: data.betweenAccounts,
         limitComments:data.limitComments
       },
+      includeEmojis:data.includeEmojis
       
   
     };
@@ -277,6 +284,8 @@ const CommentScheduler = () => {
 
   const handleEditSubmit = (data: z.infer<typeof formSchema>) => {
     if (!selectedScheduleId) return;
+    console.log('data',data);
+    
     const sanitizedTargetVideos = data.targetVideos.map(video => ({
       videoId: video.videoId,
       ...(video.title && { title: video.title }),
@@ -305,7 +314,8 @@ const CommentScheduler = () => {
         maxDelay: data.maxDelay,
         betweenAccounts: data.betweenAccounts,
         limitComments:data.limitComments
-      }
+      },
+      includeEmojis: data.includeEmojis,
     };
 
     updateSchedule({ id: selectedScheduleId, data: scheduleData });
@@ -324,11 +334,17 @@ const CommentScheduler = () => {
   const handleDeleteSchedule = (id: string) => {
     deleteSchedule(id);
   };
-
+console.log('schedule.schedule.type',schedules);
+const toggleEmojis = () => {
+  const current = form.getValues("includeEmojis") ?? false;
+  form.setValue("includeEmojis", !current);
+};
+const emojisEnabled = form.watch('includeEmojis');
   // Reset schedule type fields when schedule type changes
   useEffect(() => {
     const scheduleType = form.watch('scheduleType');
     
+
     if (scheduleType === 'immediate') {
       form.setValue('startDate', undefined);
       form.setValue('endDate', undefined);
@@ -506,7 +522,11 @@ const CommentScheduler = () => {
                               <li className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
                            
-                                <span>  Current sleep: {schedule.delays?.delayofsleep} minutes</span>
+<SleepDelayTimer schedule={schedule} />
+
+
+
+
                               </li>
                             </ul>
                             
@@ -637,7 +657,9 @@ const CommentScheduler = () => {
                   <FormDescription>
                     Add video Urls to comment on.
                   </FormDescription>
-                  
+                 
+
+
                   <div className="flex gap-2">
                     <Input 
                       placeholder="Enter video Urls separated by commas" 
@@ -646,7 +668,28 @@ const CommentScheduler = () => {
                     />
                     <Button type="button" onClick={addVideo} variant="secondary" className="shrink-0">Add</Button>
                   </div>
-                  
+                   <div className="flex items-center justify-between rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+  <div>
+    <label className="block text-sm font-medium text-gray-700">Enable Emojis</label>
+    <p className="text-sm text-gray-500">Include emojis automatically in comments.</p>
+  </div>
+
+  <button
+    type="button"
+    onClick={() => toggleEmojis()}
+    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+      emojisEnabled ? 'bg-green-500' : 'bg-gray-300'
+    }`}
+    role="switch"
+    aria-checked={emojisEnabled}
+  >
+    <span
+      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
+        emojisEnabled ? 'translate-x-5' : 'translate-x-0'
+      }`}
+    />
+  </button>
+</div>
                   {form.getValues('targetVideos')?.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {form.getValues('targetVideos').map((video) => (
@@ -1126,7 +1169,28 @@ const CommentScheduler = () => {
                     />
                     <Button type="button" onClick={addComment} variant="secondary" className="shrink-0">Add</Button>
                   </div>
-                  
+                    <div className="flex items-center justify-between rounded-md border border-gray-200 bg-white p-4 shadow-sm">
+  <div>
+    <label className="block text-sm font-medium text-gray-700">Enable Emojis</label>
+    <p className="text-sm text-gray-500">Include emojis automatically in comments.</p>
+  </div>
+
+  <button
+    type="button"
+    onClick={toggleEmojis}
+    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+      emojisEnabled ? 'bg-green-500' : 'bg-gray-300'
+    }`}
+    role="switch"
+    aria-checked={emojisEnabled}
+  >
+    <span
+      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
+        emojisEnabled ? 'translate-x-5' : 'translate-x-0'
+      }`}
+    />
+  </button>
+</div>
                   {form.getValues('commentTemplates')?.length > 0 && (
                     <div className="mt-3 space-y-2">
                       {form.getValues('commentTemplates').map((comment, index) => (

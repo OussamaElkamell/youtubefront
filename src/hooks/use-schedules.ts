@@ -86,6 +86,7 @@ export type ScheduleFormData = {
     betweenAccounts: number;
     limitComments:number;
   };
+    includeEmojis:boolean,
  
 };
 
