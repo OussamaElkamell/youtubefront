@@ -275,7 +275,7 @@ const handleDeleteAccount = async (id: string) => {
           <div className="grid gap-2">
             <div>
               <div className="text-muted-foreground mb-1">Proxy:</div>
-              <div>{account.proxy.host&& account.proxy.host}</div>
+              <div>{account?.proxy?.host&& account.proxy.host}</div>
 
             </div>
             <div>

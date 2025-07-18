@@ -48,6 +48,7 @@ export type ScheduleType = {
     postedComments: number;
     failedComments: number;
   };
+  useAI:boolean;
   createdAt: Date;
   
 
@@ -86,6 +87,7 @@ export type ScheduleFormData = {
     betweenAccounts: number;
     limitComments:number;
   };
+    useAI:boolean,
     includeEmojis:boolean,
  
 };

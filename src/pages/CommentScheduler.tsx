@@ -59,11 +59,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useSchedules, ScheduleFormData } from "@/hooks/use-schedules";
 import { useYouTubeAccountsSelect } from "@/hooks/use-youtube-accounts-select";
 import SleepDelayTimer from "@/components/Customized/SleepDelayTimer";
+import { Switch } from "@/components/ui/switch";
 
 // Form schema
 const formSchema = z.object({
   name: z.string().min(1, "Name is required"),
-  commentTemplates: z.array(z.string()).min(1, "At least one comment template is required"),
+  commentTemplates: z.array(z.string()).optional(),
   targetVideos: z.array(z.object({
     videoId: z.string().min(1, "Video ID is required"),
     title: z.string().optional(),
@@ -83,6 +84,7 @@ const formSchema = z.object({
   limitComments:z.number().min(0),
   betweenAccounts: z.number().min(0),
   includeEmojis: z.boolean().optional(),
+  useAI:z.boolean()
 
 });
 
@@ -92,7 +94,9 @@ const CommentScheduler = () => {
   const [selectedScheduleId, setSelectedScheduleId] = useState<string | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<any>(null);
   const [videoInput, setVideoInput] = useState("");
+  const [videoTitle, setVideoTitle] = useState("");
   const [commentInput, setCommentInput] = useState("");
+    const [useAI, setUseAI] = useState(false);
 
 
   const { 
@@ -127,6 +131,7 @@ const CommentScheduler = () => {
       limitComments:0,
       betweenAccounts: 300,
       includeEmojis: false,
+      useAI:false
     },
   });
 
@@ -147,7 +152,8 @@ const CommentScheduler = () => {
       maxDelay: 180,
       limitComments:0,
       betweenAccounts: 300,
-      includeEmojis:false
+      includeEmojis:false,
+      useAI:false
     });
     setVideoInput("");
     setCommentInput("");
@@ -179,11 +185,13 @@ const CommentScheduler = () => {
       limitComments:schedule.delays.limitComments,
       betweenAccounts: schedule.delays.betweenAccounts,
       includeEmojis: schedule.includeEmojis,
+      useAI:schedule.useAI
    
     });
     
     setIsEditDialogOpen(true);
   };
+
 
   const addVideo = () => {
     if (!videoInput.trim()) return;
@@ -225,15 +233,24 @@ const CommentScheduler = () => {
   };
   
   const addComment = () => {
-    if (!commentInput.trim()) return;
-    
+  if (!commentInput.trim()) return;
+
+  if (useAI) {
+    // Save only the video title in the form
+    form.setValue('useAI',true);
+    setUseAI(true); // optional, in case you use it locally
+    setCommentInput(""); // clear input
+  } else {
     const currentComments = form.getValues('commentTemplates') || [];
     
     if (!currentComments.includes(commentInput.trim())) {
       form.setValue('commentTemplates', [...currentComments, commentInput.trim()]);
       setCommentInput("");
     }
-  };
+  }
+};
+
+
   
   const removeComment = (comment: string) => {
     const currentComments = form.getValues('commentTemplates') || [];
@@ -273,11 +290,12 @@ const CommentScheduler = () => {
         betweenAccounts: data.betweenAccounts,
         limitComments:data.limitComments
       },
-      includeEmojis:data.includeEmojis
+      includeEmojis:data.includeEmojis,
+      useAI:data.useAI
       
   
     };
-
+  console.log('Submitting with useAi:', data.useAI);
     createSchedule(scheduleData);
     setIsCreateDialogOpen(false);
   };
@@ -316,6 +334,7 @@ const CommentScheduler = () => {
         limitComments:data.limitComments
       },
       includeEmojis: data.includeEmojis,
+      useAI:data.useAI
     };
 
     updateSchedule({ id: selectedScheduleId, data: scheduleData });
@@ -489,13 +508,18 @@ const emojisEnabled = form.watch('includeEmojis');
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <div>
                             <h4 className="text-sm font-medium mb-2">Comment Templates ({schedule.commentTemplates.length})</h4>
-                            <div className="space-y-2">
-                              {schedule.commentTemplates.map((comment, idx) => (
-                                <div key={idx} className="bg-slate-50 rounded-md p-3 text-sm">
-                                  {comment}
-                                </div>
-                              ))}
-                            </div>
+                      <div
+  className={`space-y-2 ${
+    schedule.commentTemplates.length > 5 ? "max-h-60 overflow-y-auto" : ""
+  }`}
+>
+  {schedule.commentTemplates.map((comment, idx) => (
+    <div key={idx} className="bg-slate-50 rounded-md p-3 text-sm">
+      {comment}
+    </div>
+  ))}
+</div>
+
                           </div>
                           <div>
                             <h4 className="text-sm font-medium mb-2">Schedule Configuration</h4>
@@ -612,45 +636,73 @@ const emojisEnabled = form.watch('includeEmojis');
                   )}
                 />
                 
-                <div className="space-y-2">
-                  <FormLabel>Comment Templates</FormLabel>
-                  <FormDescription>
-                    Add different comment texts. One will be randomly selected for each post.
-                  </FormDescription>
-                  
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Enter a comment template..." 
-                      value={commentInput}
-                      onChange={(e) => setCommentInput(e.target.value)}
-                    />
-                    <Button type="button" onClick={addComment} variant="secondary" className="shrink-0">Add</Button>
-                  </div>
-                  
-                  {form.getValues('commentTemplates')?.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {form.getValues('commentTemplates').map((comment, index) => (
-                        <div key={index} className="flex items-center justify-between bg-slate-50 rounded-md p-3 text-sm">
-                          <div className="flex-1 mr-2 break-all">{comment}</div>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => removeComment(comment)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {form.formState.errors.commentTemplates && (
-                    <p className="text-sm font-medium text-destructive">
-                      {form.formState.errors.commentTemplates.message}
-                    </p>
-                  )}
-                </div>
+               <div className="space-y-2">
+  {/* Switch Section */}
+  {/* <div className="flex items-center space-x-2">
+   <Switch
+  id="generate-with-ai"
+  checked={useAI}
+  onCheckedChange={(checked) => {
+    setUseAI(checked);
+    form.setValue('useAI', checked); // keep form in sync
+  }}
+/>
+
+    <Label htmlFor="generate-with-ai">Generate with AI</Label>
+  </div> */}
+ {!useAI && (
+  <>
+    <FormLabel>Comment Templates</FormLabel>
+    <FormDescription>
+      Add different comment texts. One will be randomly selected for each post.
+    </FormDescription>
+
+    {/* Input Field */}
+    <div className="flex gap-2">
+      <Input
+        placeholder="Enter a comment template..."
+        value={commentInput}
+        onChange={(e) => setCommentInput(e.target.value)}
+      />
+      <Button type="button" onClick={addComment} variant="secondary" className="shrink-0">
+        Add
+      </Button>
+    </div>
+  </>
+)}
+
+
+  {/* List of manual comments */}
+  {!useAI && form.getValues("commentTemplates")?.length > 0 && (
+    <div className="mt-3 space-y-2">
+      {form.getValues("commentTemplates").map((comment, index) => (
+        <div
+          key={index}
+          className="flex items-center justify-between bg-slate-50 rounded-md p-3 text-sm"
+        >
+          <div className="flex-1 mr-2 break-all">{comment}</div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => removeComment(comment)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* Error */}
+  {!useAI && form.formState.errors.commentTemplates && (
+    <p className="text-sm font-medium text-destructive">
+      {form.formState.errors.commentTemplates.message}
+    </p>
+  )}
+</div>
+
+
                 
                 <div className="space-y-2">
                   <FormLabel>Target YouTube Videos</FormLabel>
@@ -1091,7 +1143,7 @@ const emojisEnabled = form.watch('includeEmojis');
                       )}
                     />
                     
-                    {/* <FormField
+                    <FormField
                       control={form.control}
                       name="betweenAccounts"
                       render={({ field }) => (
@@ -1111,7 +1163,7 @@ const emojisEnabled = form.watch('includeEmojis');
                           <FormMessage />
                         </FormItem>
                       )}
-                    /> */}
+                    />
                   </div>
                 </div>
                 
@@ -1156,65 +1208,63 @@ const emojisEnabled = form.watch('includeEmojis');
                 />
                 
                 <div className="space-y-2">
-                  <FormLabel>Comment Templates</FormLabel>
-                  <FormDescription>
-                    Add different comment texts. One will be randomly selected for each post.
-                  </FormDescription>
-                  
-                  <div className="flex gap-2">
-                    <Input 
-                      placeholder="Enter a comment template..." 
-                      value={commentInput}
-                      onChange={(e) => setCommentInput(e.target.value)}
-                    />
-                    <Button type="button" onClick={addComment} variant="secondary" className="shrink-0">Add</Button>
-                  </div>
-                    <div className="flex items-center justify-between rounded-md border border-gray-200 bg-white p-4 shadow-sm">
-  <div>
-    <label className="block text-sm font-medium text-gray-700">Enable Emojis</label>
-    <p className="text-sm text-gray-500">Include emojis automatically in comments.</p>
+  {/* Switch Section */}
+  {/* <div className="flex items-center space-x-2">
+    <Switch id="generate-with-ai" checked={useAI} onCheckedChange={setUseAI} />
+    <Label htmlFor="generate-with-ai">Generate with AI</Label>
+  </div> */}
+ {!useAI && (
+  <>
+  <FormLabel>{"Comment Templates"}</FormLabel>
+  <FormDescription>
+    
+      Add different comment texts. One will be randomly selected for each post.
+  </FormDescription>
+
+  {/* Input Field */}
+  <div className="flex gap-2">
+    <Input
+      placeholder="Enter a comment template..."
+      value={commentInput}
+      onChange={(e) => setCommentInput(e.target.value)}
+    />
+    <Button type="button" onClick={addComment} variant="secondary" className="shrink-0">
+      Add
+    </Button>
   </div>
 
-  <button
-    type="button"
-    onClick={toggleEmojis}
-    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
-      emojisEnabled ? 'bg-green-500' : 'bg-gray-300'
-    }`}
-    role="switch"
-    aria-checked={emojisEnabled}
-  >
-    <span
-      className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
-        emojisEnabled ? 'translate-x-5' : 'translate-x-0'
-      }`}
-    />
-  </button>
+</>
+ )}
+
+  {/* List of manual comments */}
+  {!useAI && form.getValues("commentTemplates")?.length > 0 && (
+    <div className="mt-3 space-y-2">
+      {form.getValues("commentTemplates").map((comment, index) => (
+        <div
+          key={index}
+          className="flex items-center justify-between bg-slate-50 rounded-md p-3 text-sm"
+        >
+          <div className="flex-1 mr-2 break-all">{comment}</div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => removeComment(comment)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+    </div>
+  )}
+
+  {/* Error */}
+  {!useAI && form.formState.errors.commentTemplates && (
+    <p className="text-sm font-medium text-destructive">
+      {form.formState.errors.commentTemplates.message}
+    </p>
+  )}
 </div>
-                  {form.getValues('commentTemplates')?.length > 0 && (
-                    <div className="mt-3 space-y-2">
-                      {form.getValues('commentTemplates').map((comment, index) => (
-                        <div key={index} className="flex items-center justify-between bg-slate-50 rounded-md p-3 text-sm">
-                          <div className="flex-1 mr-2 break-all">{comment}</div>
-                          <Button 
-                            type="button" 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => removeComment(comment)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  
-                  {form.formState.errors.commentTemplates && (
-                    <p className="text-sm font-medium text-destructive">
-                      {form.formState.errors.commentTemplates.message}
-                    </p>
-                  )}
-                </div>
                 
                 <div className="space-y-2">
                   <FormLabel>Target YouTube Videos</FormLabel>
@@ -1611,7 +1661,7 @@ const emojisEnabled = form.watch('includeEmojis');
                       )}
                     />
                     
-                    {/* <FormField
+                    <FormField
                       control={form.control}
                       name="betweenAccounts"
                       render={({ field }) => (
@@ -1631,7 +1681,7 @@ const emojisEnabled = form.watch('includeEmojis');
                           <FormMessage />
                         </FormItem>
                       )}
-                    /> */}
+                    />
                   </div>
                 
                 </div>
