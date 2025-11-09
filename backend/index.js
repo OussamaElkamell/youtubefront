@@ -36,7 +36,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Configure middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:4000',
+  origin: process.env.CLIENT_URL || 'http://localhost:8080',
   credentials: true
 }));
 app.set('trust proxy', 1);

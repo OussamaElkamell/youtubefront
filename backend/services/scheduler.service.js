@@ -273,8 +273,11 @@ async function handleIntervalSchedule(schedule, scheduleId) {
     let intervalMs;
     const postedComments = currentSchedule.progress?.postedComments || 0;
     const limitComments = currentSchedule.delays?.limitComments.value || 0;
+console.log("hhhhhhhhhhhhhhhhhhhheeeeeeeeeeeloooooo");
 
     if (limitComments > 0 && postedComments % limitComments === 0 && postedComments > 0) {
+      console.log("heeeeeeeeeeelo agaaaaaaain");
+      
       const minDelay = currentSchedule.delays.minDelay || 1;
       const maxDelay = currentSchedule.delays.maxDelay || 30;
       const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
@@ -530,9 +533,15 @@ scheduleWorker.on('failed', (job, err) => {
       updateFields.proxyErrorCount = 0;
 
       const schedule = await ScheduleModel.findById(scheduleId);
-      // if (schedule?.schedule?.type === 'interval') {
-      //   await handleIntervalSchedule(schedule, scheduleId);
-      // }
+          const updatedSchedule = await ScheduleModel.findById(scheduleId)
+          .populate('selectedAccounts')
+          .lean();
+        
+        if (updatedSchedule &&schedule?.schedule?.type === 'interval') {
+          console.log(`[Schedule ${scheduleId}] Triggering handleIntervalSchedule to restore normal operation`);
+          await handleIntervalSchedule(updatedSchedule, scheduleId);
+        }
+ 
 
     } else if (proxyError) {
       const currentAccount = await YouTubeAccountModel.findById(comment.youtubeAccount._id);
@@ -693,14 +702,7 @@ async function optimizedProcessSchedule(scheduleId) {
         // Get updated schedule and trigger handleIntervalSchedule to:
         // 1. Rotate accounts back (if rotation enabled)
         // 2. Recreate job with normal interval
-        const updatedSchedule = await ScheduleModel.findById(scheduleId)
-          .populate('selectedAccounts')
-          .lean();
-        
-        if (updatedSchedule) {
-          console.log(`[Schedule ${scheduleId}] Triggering handleIntervalSchedule to restore normal operation`);
-          await handleIntervalSchedule(updatedSchedule, scheduleId);
-        }
+    
       }
     }
 
