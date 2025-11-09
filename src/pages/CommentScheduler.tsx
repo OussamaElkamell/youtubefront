@@ -226,11 +226,17 @@ const CommentScheduler = () => {
       intervalUnit: schedule.schedule.interval?.unit,
       minIntervalValue: schedule.schedule.interval?.minValue || 1,
       maxIntervalValue: schedule.schedule.interval?.maxValue || 2,
-      minDelay: schedule.delays.minDelay,
-      maxDelay: schedule.delays.maxDelay,
-      limitComments: schedule.delays.limitComments,
-      minSleepComments: schedule.delays.minSleepComments || 5,
-      maxSleepComments: schedule.delays.maxSleepComments || 10,
+        minDelay: schedule.delays.minDelay,
+        maxDelay: schedule.delays.maxDelay,
+        limitComments: typeof schedule.delays.limitComments === 'object' 
+          ? schedule.delays.limitComments.value 
+          : schedule.delays.limitComments || 0,
+        minSleepComments: typeof schedule.delays.limitComments === 'object'
+          ? schedule.delays.limitComments.min
+          : 5,
+        maxSleepComments: typeof schedule.delays.limitComments === 'object'
+          ? schedule.delays.limitComments.max
+          : 10,
       betweenAccounts: schedule.delays.betweenAccounts,
       includeEmojis: schedule.includeEmojis,
       useAI: schedule.useAI,
