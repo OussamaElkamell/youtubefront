@@ -249,6 +249,14 @@ const CommentScheduler = () => {
     setIsEditDialogOpen(true);
   };
 
+const getLimitCommentsLabel = (delays) => {
+  if (!delays?.limitComments) return "0";
+  if (typeof delays.limitComments === "object") {
+    const { value, min, max } = delays.limitComments;
+    return `${value ?? 0}${min != null && max != null ? ` (range: ${min}-${max})` : ""}`;
+  }
+  return String(delays.limitComments);
+};
 
   const addVideo = () => {
     if (!videoInput.trim()) return;
@@ -637,15 +645,11 @@ const emojisEnabled = form.watch('includeEmojis');
                               </li>
                               <li className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
-                             <span>
-  Delay: {schedule.delays?.minDelay}-{schedule.delays?.maxDelay} minutes, 
-  every {schedule.delays?.limitComments && typeof schedule.delays.limitComments === 'object' 
-    ? schedule.delays.limitComments.value 
-    : schedule.delays?.limitComments || 0} posted comments to sleep
-  {schedule.delays?.limitComments && typeof schedule.delays.limitComments === 'object' && 
-    ` (range: ${schedule.delays.limitComments.min}-${schedule.delays.limitComments.max})`}
+<span>
+  Delay: {schedule.delays?.minDelay}-{schedule.delays?.maxDelay} minutes,
+  every {getLimitCommentsLabel(schedule.delays)} posted comments to sleep
 </span>
-                             
+
                               </li>
                               <li className="flex items-center gap-2">
                                 <Clock className="h-4 w-4 text-muted-foreground" />
