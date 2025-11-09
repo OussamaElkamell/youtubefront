@@ -4,25 +4,29 @@ const SleepDelayTimer = ({ schedule }) => {
   const [timeLeft, setTimeLeft] = useState(0);
 
   useEffect(() => {
-    const delayMinutes = schedule.delays?.delayofsleep;
+    if (!schedule.delays?.delayofsleep || !schedule.delays?.delayStartTime) {
+      setTimeLeft(0);
+      return;
+    }
 
-    if (typeof delayMinutes !== 'number') return;
-
-    let totalMs = delayMinutes * 60 * 1000;
-    setTimeLeft(totalMs);
-
-    const interval = setInterval(() => {
-      totalMs -= 1000;
-      if (totalMs <= 0) {
+    const delayStartTime = new Date(schedule.delays.delayStartTime);
+    const delayEndTime = new Date(delayStartTime.getTime() + schedule.delays.delayofsleep * 60 * 1000);
+    
+    const updateTimer = () => {
+      const now = new Date();
+      const remaining = Math.max(0, delayEndTime.getTime() - now.getTime());
+      setTimeLeft(remaining);
+      
+      if (remaining <= 0) {
         clearInterval(interval);
-        setTimeLeft(0);
-      } else {
-        setTimeLeft(totalMs);
       }
-    }, 1000);
-
-    return () => clearInterval(interval); // Reset on change
-  }, [schedule.delays?.delayofsleep]);
+    };
+    
+    updateTimer(); // Initial update
+    const interval = setInterval(updateTimer, 1000);
+    
+    return () => clearInterval(interval);
+  }, [schedule.delays?.delayofsleep, schedule.delays?.delayStartTime]);
 
   const minutes = Math.floor(timeLeft / 60000);
   const seconds = Math.floor((timeLeft % 60000) / 1000).toString().padStart(2, '0');

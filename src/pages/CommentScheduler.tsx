@@ -341,7 +341,11 @@ const CommentScheduler = () => {
         minDelay: data.minDelay,
         maxDelay: data.maxDelay,
         betweenAccounts: data.betweenAccounts,
-        limitComments: data.limitComments,
+        limitComments: {
+          value: data.limitComments,
+          min: data.minSleepComments,
+          max: data.maxSleepComments
+        },
         minSleepComments: data.minSleepComments,
         maxSleepComments: data.maxSleepComments
       },
@@ -393,7 +397,11 @@ const CommentScheduler = () => {
         minDelay: data.minDelay,
         maxDelay: data.maxDelay,
         betweenAccounts: data.betweenAccounts,
-        limitComments: data.limitComments,
+        limitComments: {
+          value: data.limitComments,
+          min: data.minSleepComments,
+          max: data.maxSleepComments
+        },
         minSleepComments: data.minSleepComments,
         maxSleepComments: data.maxSleepComments
       },

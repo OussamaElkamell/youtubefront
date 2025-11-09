@@ -279,7 +279,14 @@ async function handleIntervalSchedule(schedule, scheduleId) {
       const maxDelay = currentSchedule.delays.maxDelay || 30;
       const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
       intervalMs = randomDelay * 60 * 1000;
-      console.log(`[Schedule ${scheduleId}] 💤 Entering sleep cycle for ${randomDelay} minutes`);
+      
+      const sleepEndTime = new Date(Date.now() + randomDelay * 60 * 1000);
+      console.log(`[Schedule ${scheduleId}] 💤 Sleep Mode Activated:`);
+      console.log(`  - Duration: ${randomDelay} minutes`);
+      console.log(`  - Start Time: ${new Date()}`);
+      console.log(`  - End Time: ${sleepEndTime}`);
+      console.log(`  - Posted Comments: ${postedComments}`);
+      console.log(`  - Limit: ${limitComments}`);
 
       // 🔄 Rotate accounts if rotation is enabled (BEFORE sleep)
       let updateFields = { 
@@ -305,10 +312,14 @@ async function handleIntervalSchedule(schedule, scheduleId) {
         }
       }
 
-      await ScheduleModel.updateOne(
+      const updateResult = await ScheduleModel.updateOne(
         { _id: schedule._id },
         { $set: updateFields }
       );
+      
+      if (updateResult) {
+        console.log(`  - DB Update: ${updateResult.modifiedCount} documents modified`);
+      }
 
       // Remove existing job if exists
       const jobId = `interval-${scheduleId}`;
@@ -650,7 +661,10 @@ async function optimizedProcessSchedule(scheduleId) {
         console.log(`[Schedule ${scheduleId}] Skipping processing - active delay period (${schedule.delays.delayofsleep} minutes) until ${delayEndTime}`);
         return false;
       } else {
-        // Clear expired delay
+        // Sleep period ended - restore normal operation
+        console.log(`[Schedule ${scheduleId}] Sleep ended - restoring normal operation`);
+        
+        // Clear sleep delay fields
         await ScheduleModel.updateOne(
           { _id: scheduleId },
           {
@@ -660,21 +674,33 @@ async function optimizedProcessSchedule(scheduleId) {
             }
           }
         );
-        console.log(`[Schedule ${scheduleId}] Delay period ended - resuming normal processing`);
-        // ------------------ NEW: set random limitComments if min and max exist ------------------
-const minLimit = schedule.delays.limitComments?.min;
-const maxLimit = schedule.delays.limitComments?.max;
+        
+        // Set new random limitComments if min and max exist
+        const minLimit = schedule.delays.limitComments?.min;
+        const maxLimit = schedule.delays.limitComments?.max;
 
-if (typeof minLimit === 'number' && typeof maxLimit === 'number') {
-  const randomLimit = Math.round(Math.random() * (maxLimit - minLimit) + minLimit);
+        if (typeof minLimit === 'number' && typeof maxLimit === 'number') {
+          const randomLimit = Math.round(Math.random() * (maxLimit - minLimit) + minLimit);
 
-  await ScheduleModel.updateOne(
-    { _id: scheduleId },
-    { $set: { 'delays.limitComments.value': randomLimit } }
-  );
+          await ScheduleModel.updateOne(
+            { _id: scheduleId },
+            { $set: { 'delays.limitComments.value': randomLimit } }
+          );
 
-  console.log(`[Schedule ${scheduleId}] New random limitComments set: ${randomLimit}`);
-}
+          console.log(`[Schedule ${scheduleId}] New random limitComments set: ${randomLimit}`);
+        }
+        
+        // Get updated schedule and trigger handleIntervalSchedule to:
+        // 1. Rotate accounts back (if rotation enabled)
+        // 2. Recreate job with normal interval
+        const updatedSchedule = await ScheduleModel.findById(scheduleId)
+          .populate('selectedAccounts')
+          .lean();
+        
+        if (updatedSchedule) {
+          console.log(`[Schedule ${scheduleId}] Triggering handleIntervalSchedule to restore normal operation`);
+          await handleIntervalSchedule(updatedSchedule, scheduleId);
+        }
       }
     }
 

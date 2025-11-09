@@ -41,7 +41,13 @@ export type ScheduleType = {
     minDelay: number;
     maxDelay: number;
     betweenAccounts: number;
-    limitComments:number;
+    limitComments: {
+      value: number;
+      min: number;
+      max: number;
+    };
+    delayofsleep?: number;
+    delayStartTime?: Date;
   };
   progress: {
     totalComments: number;
@@ -94,9 +100,13 @@ export type ScheduleFormData = {
     minDelay: number;
     maxDelay: number;
     betweenAccounts: number;
-    limitComments:number;
-    minSleepComments:number
-    maxSleepComments:number
+    limitComments: {
+      value: number;
+      min: number;
+      max: number;
+    };
+    minSleepComments: number;
+    maxSleepComments: number;
   };
   useAI:boolean,
   includeEmojis:boolean,
