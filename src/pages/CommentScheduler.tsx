@@ -75,7 +75,7 @@ const formSchema = z.object({
     thumbnailUrl: z.string().optional(),
   })).min(1, "At least one video ID is required"),
   accountSelection: z.enum(["specific", "random", "round-robin"]),
-  selectedAccounts: z.array(z.string()).min(1, "Select at least one account"),
+  selectedAccounts: z.array(z.string()).optional(),
   scheduleType: z.enum(["immediate", "once", "recurring", "interval"]),
   startDate: z.date().optional(),
   endDate: z.date().optional(),
@@ -114,6 +114,15 @@ const formSchema = z.object({
 }, {
   message: "Min sleep comments must be less than or equal to max sleep comments",
   path: ["maxSleepComments"]
+}).refine((data) => {
+  // Validate selectedAccounts when rotation is disabled
+  if (!data.enableAccountRotation && (!data.selectedAccounts || data.selectedAccounts.length === 0)) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Select at least one account or enable account rotation",
+  path: ["selectedAccounts"]
 });
 ;
 
@@ -904,128 +913,111 @@ const emojisEnabled = form.watch('includeEmojis');
                   )}
                 </div>
                 
-                <FormField
-                  control={form.control}
-                  name="accountSelection"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Account Selection Strategy</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select strategy" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="specific">Use all selected accounts</SelectItem>
-                          <SelectItem value="random">Random account from selection</SelectItem>
-                          <SelectItem value="round-robin">Round-robin (one after another)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
-                <FormField
-                  control={form.control}
-                  name="selectedAccounts"
-                  render={() => (
-                    <FormItem>
-                      <div className="mb-4">
-                        <FormLabel>YouTube Accounts</FormLabel>
-                        <FormDescription>
-                          Select the accounts to post comments from.
-                        </FormDescription>
-                      </div>
-                      {isLoadingAccounts ? (
-                        <div className="text-center py-4">
-                          <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
-                          <p className="text-sm text-muted-foreground mt-2">Loading accounts...</p>
-                        </div>
-                      ) : accounts.length === 0 ? (
-                        <div className="text-center py-4 border rounded-md bg-muted/50">
-                          <p className="text-sm">No YouTube accounts available.</p>
-                          <Button 
-                            variant="link" 
-                            className="mt-1 h-auto p-0"
-                            onClick={() => window.location.href = '/accounts'}
-                          >
-                            Add YouTube accounts
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                           <div className="flex items-center space-x-2 pb-1 border-b">
-            <Checkbox
-              id="select-all-accounts"
-              checked={form.watch('selectedAccounts')?.length === accounts.filter(a => a.status === "active").length}
-              onCheckedChange={(checked) => {
-                if (checked) {
-                  form.setValue('selectedAccounts', 
-                    accounts.filter(a => a.status === "active").map(a => a._id)
-                  );
-                } else {
-                  form.setValue('selectedAccounts', []);
-                }
-              }}
-            />
-            <label
-              htmlFor="select-all-accounts"
-              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-            >
-              Select All
-            </label>
-          </div>
-                          {accounts.map((account) => (
-                            <FormField
-                              key={account._id}
-                              control={form.control}
-                              name="selectedAccounts"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={account._id}
-                                    className="flex flex-row items-start space-x-3 space-y-0 py-1"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(account._id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...field.value, account._id])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== account._id
-                                                )
-                                              );
-                                        }}
-                                        disabled={account.status !== "active"}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      {account.channelTitle || account.email}{" "}
-                                      {account.status !== "active" && (
-                                        <span className="text-muted-foreground ml-2">({account.status})</span>
-                                      )}
-                                    </FormLabel>
-                                  </FormItem>
-                                );
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                
                 {/* Account Rotation Section */}
                 <AccountRotationSection form={form} accounts={accounts} />
+                
+                {!form.watch('enableAccountRotation') && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="accountSelection"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Account Selection Strategy</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select strategy" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="specific">Use all selected accounts</SelectItem>
+                              <SelectItem value="random">Random account from selection</SelectItem>
+                              <SelectItem value="round-robin">Round-robin (one after another)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="selectedAccounts"
+                      render={() => (
+                        <FormItem>
+                          <div className="mb-4">
+                            <FormLabel>YouTube Accounts</FormLabel>
+                            <FormDescription>
+                              Select the accounts to post comments from.
+                            </FormDescription>
+                          </div>
+                          {isLoadingAccounts ? (
+                            <div className="text-center py-4">
+                              <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                              <p className="text-sm text-muted-foreground mt-2">Loading accounts...</p>
+                            </div>
+                          ) : accounts.length === 0 ? (
+                            <div className="text-center py-4 border rounded-md bg-muted/50">
+                              <p className="text-sm">No YouTube accounts available.</p>
+                              <Button 
+                                variant="link" 
+                                className="mt-1 h-auto p-0"
+                                onClick={() => window.location.href = '/accounts'}
+                              >
+                                Add YouTube accounts
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {accounts.map((account) => (
+                                <FormField
+                                  key={account._id}
+                                  control={form.control}
+                                  name="selectedAccounts"
+                                  render={({ field }) => {
+                                    return (
+                                      <FormItem
+                                        key={account._id}
+                                        className="flex flex-row items-start space-x-3 space-y-0 py-1"
+                                      >
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value?.includes(account._id)}
+                                            onCheckedChange={(checked) => {
+                                              return checked
+                                                ? field.onChange([...field.value, account._id])
+                                                : field.onChange(
+                                                    field.value?.filter(
+                                                      (value) => value !== account._id
+                                                    )
+                                                  );
+                                            }}
+                                            disabled={account.status !== "active"}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="font-normal">
+                                          {account.channelTitle || account.email}{" "}
+                                          {account.status !== "active" && (
+                                            <span className="text-muted-foreground ml-2">({account.status})</span>
+                                          )}
+                                        </FormLabel>
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
                 
                 <FormField
                   control={form.control}
@@ -1535,104 +1527,111 @@ const emojisEnabled = form.watch('includeEmojis');
                   )}
                 </div>
                 
-                <FormField
-                  control={form.control}
-                  name="accountSelection"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Account Selection Strategy</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select strategy" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="specific">Use all selected accounts</SelectItem>
-                          <SelectItem value="random">Random account from selection</SelectItem>
-                          <SelectItem value="round-robin">Round-robin (one after another)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                {/* Account Rotation Section */}
+                <AccountRotationSection form={form} accounts={accounts} />
                 
-                <FormField
-                  control={form.control}
-                  name="selectedAccounts"
-                  render={() => (
-                    <FormItem>
-                      <div className="mb-4">
-                        <FormLabel>YouTube Accounts</FormLabel>
-                        <FormDescription>
-                          Select the accounts to post comments from.
-                        </FormDescription>
-                      </div>
-                      {isLoadingAccounts ? (
-                        <div className="text-center py-4">
-                          <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
-                          <p className="text-sm text-muted-foreground mt-2">Loading accounts...</p>
-                        </div>
-                      ) : accounts.length === 0 ? (
-                        <div className="text-center py-4 border rounded-md bg-muted/50">
-                          <p className="text-sm">No YouTube accounts available.</p>
-                          <Button 
-                            variant="link" 
-                            className="mt-1 h-auto p-0"
-                            onClick={() => window.location.href = '/accounts'}
+                {!form.watch('enableAccountRotation') && (
+                  <>
+                    <FormField
+                      control={form.control}
+                      name="accountSelection"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Account Selection Strategy</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
                           >
-                            Add YouTube accounts
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {accounts.map((account) => (
-                            <FormField
-                              key={account._id}
-                              control={form.control}
-                              name="selectedAccounts"
-                              render={({ field }) => {
-                                return (
-                                  <FormItem
-                                    key={account._id}
-                                    className="flex flex-row items-start space-x-3 space-y-0 py-1"
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={field.value?.includes(account._id)}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([...field.value, account._id])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== account._id
-                                                )
-                                              );
-                                        }}
-                                        disabled={account.status !== "active"}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal">
-                                      {account.channelTitle || account.email}{" "}
-                                      {account.status !== "active" && (
-                                        <span className="text-muted-foreground ml-2">({account.status})</span>
-                                      )}
-                                    </FormLabel>
-                                  </FormItem>
-                                );
-                              }}
-                            />
-                          ))}
-                        </div>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select strategy" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="specific">Use all selected accounts</SelectItem>
+                              <SelectItem value="random">Random account from selection</SelectItem>
+                              <SelectItem value="round-robin">Round-robin (one after another)</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
                       )}
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="selectedAccounts"
+                      render={() => (
+                        <FormItem>
+                          <div className="mb-4">
+                            <FormLabel>YouTube Accounts</FormLabel>
+                            <FormDescription>
+                              Select the accounts to post comments from.
+                            </FormDescription>
+                          </div>
+                          {isLoadingAccounts ? (
+                            <div className="text-center py-4">
+                              <div className="animate-spin h-5 w-5 border-2 border-primary border-t-transparent rounded-full mx-auto"></div>
+                              <p className="text-sm text-muted-foreground mt-2">Loading accounts...</p>
+                            </div>
+                          ) : accounts.length === 0 ? (
+                            <div className="text-center py-4 border rounded-md bg-muted/50">
+                              <p className="text-sm">No YouTube accounts available.</p>
+                              <Button 
+                                variant="link" 
+                                className="mt-1 h-auto p-0"
+                                onClick={() => window.location.href = '/accounts'}
+                              >
+                                Add YouTube accounts
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {accounts.map((account) => (
+                                <FormField
+                                  key={account._id}
+                                  control={form.control}
+                                  name="selectedAccounts"
+                                  render={({ field }) => {
+                                    return (
+                                      <FormItem
+                                        key={account._id}
+                                        className="flex flex-row items-start space-x-3 space-y-0 py-1"
+                                      >
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value?.includes(account._id)}
+                                            onCheckedChange={(checked) => {
+                                              return checked
+                                                ? field.onChange([...field.value, account._id])
+                                                : field.onChange(
+                                                    field.value?.filter(
+                                                      (value) => value !== account._id
+                                                    )
+                                                  );
+                                            }}
+                                            disabled={account.status !== "active"}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="font-normal">
+                                          {account.channelTitle || account.email}{" "}
+                                          {account.status !== "active" && (
+                                            <span className="text-muted-foreground ml-2">({account.status})</span>
+                                          )}
+                                        </FormLabel>
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </>
+                )}
                 
                 <FormField
                   control={form.control}
