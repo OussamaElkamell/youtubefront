@@ -121,8 +121,39 @@ const ScheduleSchema = new mongoose.Schema({
     type:Boolean,
 
   },
-lastUsedAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'YoutubeAccount' }
-,
+  lastUsedAccount: { type: mongoose.Schema.Types.ObjectId, ref: 'YoutubeAccount' },
+  
+  // Account rotation fields
+  accountCategories: {
+    principal: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'YouTubeAccount'
+    }],
+    secondary: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'YouTubeAccount'
+    }]
+  },
+  accountRotation: {
+    enabled: {
+      type: Boolean,
+      default: false
+    },
+    currentlyActive: {
+      type: String,
+      enum: ['principal', 'secondary'],
+      default: 'principal'
+    },
+    lastRotatedAt: Date,
+    rotatedPrincipalIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'YouTubeAccount'
+    }],
+    rotatedSecondaryIds: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'YouTubeAccount'
+    }]
+  }
 });
 
 const ScheduleModel = mongoose.model('Schedule', ScheduleSchema);

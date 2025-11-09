@@ -50,8 +50,15 @@ export type ScheduleType = {
   };
   useAI:boolean;
   createdAt: Date;
-  
-
+  accountCategories?: {
+    principal: Array<{ _id: string; email: string; status: string }>;
+    secondary: Array<{ _id: string; email: string; status: string }>;
+  };
+  accountRotation?: {
+    enabled: boolean;
+    currentlyActive: 'principal' | 'secondary';
+    lastRotatedAt?: Date;
+  };
 };
 
 export type ScheduleFormData = {
@@ -91,9 +98,15 @@ export type ScheduleFormData = {
     minSleepComments:number
     maxSleepComments:number
   };
-    useAI:boolean,
-    includeEmojis:boolean,
- 
+  useAI:boolean,
+  includeEmojis:boolean,
+  accountCategories?: {
+    principal: string[];
+    secondary: string[];
+  };
+  accountRotation?: {
+    enabled: boolean;
+  };
 };
 
 export function useSchedules() {

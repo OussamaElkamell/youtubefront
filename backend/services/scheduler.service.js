@@ -9,6 +9,7 @@ const ApiProfile = require('../models/ApiProfile');
 const youtubeService = require('./youtube.service');
 const { assignRandomProxy } = require('./proxy.service');
 const { cacheService } = require('../services/cacheService');
+const { rotateAccountsForSleepCycle } = require('./account.rotation');
 const Redis = require('ioredis');
 const https = require('https');
 require('dotenv').config();
@@ -278,16 +279,35 @@ async function handleIntervalSchedule(schedule, scheduleId) {
       const maxDelay = currentSchedule.delays.maxDelay || 30;
       const randomDelay = Math.floor(Math.random() * (maxDelay - minDelay + 1)) + minDelay;
       intervalMs = randomDelay * 60 * 1000;
-      console.log(`[Schedule ${scheduleId}] Applying random delay of ${randomDelay} minutes`);
+      console.log(`[Schedule ${scheduleId}] 💤 Entering sleep cycle for ${randomDelay} minutes`);
+
+      // 🔄 Rotate accounts if rotation is enabled (BEFORE sleep)
+      let updateFields = { 
+        'delays.delayofsleep': randomDelay,
+        'delays.delayStartTime': new Date()
+      };
+
+      if (currentSchedule.accountRotation?.enabled) {
+        console.log(`[Schedule ${scheduleId}] 🔄 Rotating accounts before sleep...`);
+        const rotationResult = await rotateAccountsForSleepCycle(currentSchedule);
+        
+        if (rotationResult) {
+          updateFields = {
+            ...updateFields,
+            selectedAccounts: rotationResult.newSelectedAccounts,
+            'accountRotation.currentlyActive': rotationResult.newActiveCategory,
+            'accountRotation.rotatedPrincipalIds': rotationResult.rotatedPrincipalIds,
+            'accountRotation.rotatedSecondaryIds': rotationResult.rotatedSecondaryIds,
+            'accountRotation.lastRotatedAt': new Date()
+          };
+          
+          console.log(`[Schedule ${scheduleId}] ✅ Rotation complete - Now using ${rotationResult.newActiveCategory} accounts`);
+        }
+      }
 
       await ScheduleModel.updateOne(
         { _id: schedule._id },
-        { 
-          $set: { 
-            'delays.delayofsleep': randomDelay,
-            'delays.delayStartTime': new Date()
-          } 
-        }
+        { $set: updateFields }
       );
 
       // Remove existing job if exists
@@ -307,17 +327,38 @@ async function handleIntervalSchedule(schedule, scheduleId) {
       return;
     }
 
-    // ✅ If no special delay, use regular interval
+    // ✅ If no special delay, use regular interval (checking if exiting sleep)
     intervalMs = calculateIntervalMs(currentSchedule.schedule.interval);
+
+    // 🔄 Check if we're exiting a sleep cycle and need to rotate back
+    const wasInSleep = currentSchedule.delays?.delayofsleep > 0 && currentSchedule.delays?.delayStartTime;
+    
+    let updateFields = { 
+      'delays.delayofsleep': 0,
+      'delays.delayStartTime': null
+    };
+
+    if (wasInSleep && currentSchedule.accountRotation?.enabled) {
+      console.log(`[Schedule ${scheduleId}] 🔄 Exiting sleep - Rotating accounts back...`);
+      const rotationResult = await rotateAccountsForSleepCycle(currentSchedule);
+      
+      if (rotationResult) {
+        updateFields = {
+          ...updateFields,
+          selectedAccounts: rotationResult.newSelectedAccounts,
+          'accountRotation.currentlyActive': rotationResult.newActiveCategory,
+          'accountRotation.rotatedPrincipalIds': rotationResult.rotatedPrincipalIds,
+          'accountRotation.rotatedSecondaryIds': rotationResult.rotatedSecondaryIds,
+          'accountRotation.lastRotatedAt': new Date()
+        };
+        
+        console.log(`[Schedule ${scheduleId}] ✅ Post-sleep rotation complete - Now using ${rotationResult.newActiveCategory} accounts`);
+      }
+    }
 
     await ScheduleModel.updateOne(
       { _id: schedule._id },
-      { 
-        $set: { 
-          'delays.delayofsleep': 0,
-          'delays.delayStartTime': null
-        } 
-      }
+      { $set: updateFields }
     );
 
     const jobId = `interval-${scheduleId}`;

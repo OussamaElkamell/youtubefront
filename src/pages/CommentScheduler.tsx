@@ -60,6 +60,9 @@ import { useSchedules, ScheduleFormData } from "@/hooks/use-schedules";
 import { useYouTubeAccountsSelect } from "@/hooks/use-youtube-accounts-select";
 import SleepDelayTimer from "@/components/Customized/SleepDelayTimer";
 import { Switch } from "@/components/ui/switch";
+import { AccountRotationSection } from "@/components/scheduler/AccountRotationSection";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 // Form schema
 const formSchema = z.object({
@@ -88,7 +91,10 @@ const formSchema = z.object({
   maxSleepComments: z.number().min(0),
   betweenAccounts: z.number().min(0),
   includeEmojis: z.boolean().optional(),
-  useAI:z.boolean()
+  useAI: z.boolean(),
+  enableAccountRotation: z.boolean().optional(),
+  principalAccounts: z.array(z.string()).optional(),
+  secondaryAccounts: z.array(z.string()).optional(),
 
 }).refine((data) => {
   // Validate min/max interval values
@@ -158,7 +164,10 @@ const CommentScheduler = () => {
       maxSleepComments: 10,
       betweenAccounts: 300,
       includeEmojis: false,
-      useAI: false
+      useAI: false,
+      enableAccountRotation: false,
+      principalAccounts: [],
+      secondaryAccounts: [],
     },
   });
 
@@ -184,7 +193,10 @@ const CommentScheduler = () => {
       maxSleepComments: 10,
       betweenAccounts: 300,
       includeEmojis: false,
-      useAI: false
+      useAI: false,
+      enableAccountRotation: false,
+      principalAccounts: [],
+      secondaryAccounts: [],
     });
     setVideoInput("");
     setCommentInput("");
@@ -221,7 +233,10 @@ const CommentScheduler = () => {
       maxSleepComments: schedule.delays.maxSleepComments || 10,
       betweenAccounts: schedule.delays.betweenAccounts,
       includeEmojis: schedule.includeEmojis,
-      useAI: schedule.useAI
+      useAI: schedule.useAI,
+      enableAccountRotation: schedule.accountRotation?.enabled || false,
+      principalAccounts: schedule.accountCategories?.principal?.map(acc => acc._id) || [],
+      secondaryAccounts: schedule.accountCategories?.secondary?.map(acc => acc._id) || [],
     });
     
     setUseAI(schedule.useAI || false);
@@ -331,7 +346,14 @@ const CommentScheduler = () => {
         maxSleepComments: data.maxSleepComments
       },
       includeEmojis: data.includeEmojis,
-      useAI: data.useAI
+      useAI: data.useAI,
+      accountCategories: data.enableAccountRotation ? {
+        principal: data.principalAccounts || [],
+        secondary: data.secondaryAccounts || []
+      } : undefined,
+      accountRotation: data.enableAccountRotation ? {
+        enabled: true
+      } : undefined
     };
 
     console.log('Submitting with useAi:', data.useAI);
@@ -376,7 +398,14 @@ const CommentScheduler = () => {
         maxSleepComments: data.maxSleepComments
       },
       includeEmojis: data.includeEmojis,
-      useAI: data.useAI
+      useAI: data.useAI,
+      accountCategories: data.enableAccountRotation ? {
+        principal: data.principalAccounts || [],
+        secondary: data.secondaryAccounts || []
+      } : undefined,
+      accountRotation: data.enableAccountRotation ? {
+        enabled: true
+      } : undefined
     };
 
     updateSchedule({ id: selectedScheduleId, data: scheduleData });
@@ -648,7 +677,14 @@ const emojisEnabled = form.watch('includeEmojis');
                         </div>
                         
                         <div className="space-y-2">
-                          <h4 className="text-sm font-medium">YouTube Accounts ({schedule.selectedAccounts.length})</h4>
+                          <div className="flex items-center justify-between">
+                            <h4 className="text-sm font-medium">YouTube Accounts ({schedule.selectedAccounts.length})</h4>
+                            {schedule.accountRotation?.enabled && (
+                              <Badge variant={schedule.accountRotation.currentlyActive === 'principal' ? 'default' : 'secondary'}>
+                                Currently: {schedule.accountRotation.currentlyActive === 'principal' ? 'Principal' : 'Secondary'}
+                              </Badge>
+                            )}
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             {schedule.selectedAccounts.map((account) => (
                               <div key={account._id} className="text-xs bg-secondary px-2 py-1 rounded">
@@ -659,6 +695,21 @@ const emojisEnabled = form.watch('includeEmojis');
                               </div>
                             ))}
                           </div>
+                          
+                          {schedule.accountRotation?.enabled && (
+                            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded-md text-xs">
+                              <p className="font-medium text-blue-900 mb-1">🔄 Account Rotation Enabled</p>
+                              <p className="text-blue-700">
+                                Principal: {schedule.accountCategories?.principal?.length || 0} • 
+                                Secondary: {schedule.accountCategories?.secondary?.length || 0}
+                              </p>
+                              {schedule.accountRotation.lastRotatedAt && (
+                                <p className="text-blue-600 mt-1">
+                                  Last rotated: {format(new Date(schedule.accountRotation.lastRotatedAt), "PPp")}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </AccordionContent>
@@ -954,6 +1005,9 @@ const emojisEnabled = form.watch('includeEmojis');
                     </FormItem>
                   )}
                 />
+                
+                {/* Account Rotation Section */}
+                <AccountRotationSection form={form} accounts={accounts} />
                 
                 <FormField
                   control={form.control}

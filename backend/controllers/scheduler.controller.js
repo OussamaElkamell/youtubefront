@@ -3,6 +3,7 @@ const { CommentModel } = require('../models/comment.model');
 const { YouTubeAccountModel } = require('../models/youtube-account.model');
 const { setupScheduleJob, pauseSchedule, deleteSchedule, updateScheduleCache } = require('../services/scheduler.service');
 const { cacheService } = require('../services/cacheService');
+const { validateRotationConfig } = require('../services/account.rotation');
 const mongoose = require('mongoose');
 
 /**
@@ -107,7 +108,9 @@ const createSchedule = async (req, res, next) => {
       schedule: scheduleConfig,
       includeEmojis,
       delays,
-      useAI
+      useAI,
+      accountCategories,
+      accountRotation
     } = req.body;
     console.log("scheduleConfig",scheduleConfig);
     
@@ -153,29 +156,59 @@ const createSchedule = async (req, res, next) => {
       intervalData = { value: 1, unit: 'minutes' };
     }
 
-    // --- Validate accounts ---
-    if (selectedAccounts && selectedAccounts.length > 0) {
+    // --- Validate account rotation config ---
+    if (accountRotation?.enabled) {
+      const rotationValidation = validateRotationConfig(accountCategories, true);
+      if (!rotationValidation.isValid) {
+        return res.status(400).json({ message: rotationValidation.error });
+      }
+
+      // Validate all account IDs exist and are active
+      const allAccountIds = [
+        ...(accountCategories.principal || []),
+        ...(accountCategories.secondary || [])
+      ];
+      
       const validAccounts = await YouTubeAccountModel.find({
-        _id: { $in: selectedAccounts },
+        _id: { $in: allAccountIds },
         user: req.user.id,
         status: 'active'
       });
 
-      if (validAccounts.length !== selectedAccounts.length) {
+      if (validAccounts.length !== allAccountIds.length) {
         return res.status(400).json({
-          message: 'Some selected accounts are invalid or inactive',
+          message: 'Some accounts in categories are invalid or inactive',
           validAccounts: validAccounts.map(a => a._id),
         });
       }
+
+      // When rotation is enabled, use principal accounts as initial selected accounts
+      selectedAccounts = accountCategories.principal;
     } else {
-      const activeAccounts = await YouTubeAccountModel.find({
-        user: req.user.id,
-        status: 'active'
-      });
-      if (activeAccounts.length === 0) {
-        return res.status(400).json({ message: 'No active YouTube accounts available' });
+      // --- Validate accounts (non-rotation mode) ---
+      if (selectedAccounts && selectedAccounts.length > 0) {
+        const validAccounts = await YouTubeAccountModel.find({
+          _id: { $in: selectedAccounts },
+          user: req.user.id,
+          status: 'active'
+        });
+
+        if (validAccounts.length !== selectedAccounts.length) {
+          return res.status(400).json({
+            message: 'Some selected accounts are invalid or inactive',
+            validAccounts: validAccounts.map(a => a._id),
+          });
+        }
+      } else {
+        const activeAccounts = await YouTubeAccountModel.find({
+          user: req.user.id,
+          status: 'active'
+        });
+        if (activeAccounts.length === 0) {
+          return res.status(400).json({ message: 'No active YouTube accounts available' });
+        }
+        selectedAccounts = activeAccounts.map(a => a._id);
       }
-      selectedAccounts = activeAccounts.map(a => a._id);
     }
 
     // --- Create Schedule ---
@@ -187,15 +220,22 @@ const createSchedule = async (req, res, next) => {
       targetChannels: targetChannels || [],
       accountSelection: accountSelection || 'specific',
       selectedAccounts,
-       schedule: {
-    ...scheduleConfig,  
-    interval: intervalData  
-  },
+      schedule: {
+        ...scheduleConfig,  
+        interval: intervalData  
+      },
       delays: delaysData,
       includeEmojis,
       status: 'active',
       interval: intervalData,
       useAI,
+      accountCategories: accountRotation?.enabled ? accountCategories : undefined,
+      accountRotation: accountRotation?.enabled ? {
+        enabled: true,
+        currentlyActive: 'principal',
+        rotatedPrincipalIds: [],
+        rotatedSecondaryIds: []
+      } : undefined
     });
 
     await schedule.save();
@@ -229,7 +269,9 @@ const updateSchedule = async (req, res, next) => {
       schedule: scheduleConfig,
       includeEmojis,
       delays,
-      useAI
+      useAI,
+      accountCategories,
+      accountRotation
     } = req.body;
 
     const schedule = await ScheduleModel.findOne({
@@ -281,8 +323,56 @@ const updateSchedule = async (req, res, next) => {
       };
     }
 
-    // --- Validate / update selected accounts (same logic as createSchedule) ---
-    if (selectedAccounts !== undefined) {
+    // --- Validate account rotation config if being updated ---
+    if (accountRotation !== undefined) {
+      if (accountRotation?.enabled) {
+        const rotationValidation = validateRotationConfig(accountCategories, true);
+        if (!rotationValidation.isValid) {
+          return res.status(400).json({ message: rotationValidation.error });
+        }
+
+        // Validate all account IDs exist and are active
+        const allAccountIds = [
+          ...(accountCategories.principal || []),
+          ...(accountCategories.secondary || [])
+        ];
+        
+        const validAccounts = await YouTubeAccountModel.find({
+          _id: { $in: allAccountIds },
+          user: req.user.id,
+          status: 'active'
+        });
+
+        if (validAccounts.length !== allAccountIds.length) {
+          return res.status(400).json({
+            message: 'Some accounts in categories are invalid or inactive',
+            validAccounts: validAccounts.map(a => a._id),
+          });
+        }
+
+        // Update rotation config
+        schedule.accountCategories = accountCategories;
+        schedule.accountRotation = {
+          enabled: true,
+          currentlyActive: schedule.accountRotation?.currentlyActive || 'principal',
+          rotatedPrincipalIds: schedule.accountRotation?.rotatedPrincipalIds || [],
+          rotatedSecondaryIds: schedule.accountRotation?.rotatedSecondaryIds || [],
+          lastRotatedAt: schedule.accountRotation?.lastRotatedAt
+        };
+        
+        // Use principal accounts as selected if rotation is newly enabled
+        if (!schedule.accountRotation?.enabled) {
+          schedule.selectedAccounts = accountCategories.principal;
+        }
+      } else {
+        // Disable rotation
+        schedule.accountRotation = { enabled: false };
+        schedule.accountCategories = undefined;
+      }
+    }
+
+    // --- Validate / update selected accounts (non-rotation mode or manual override) ---
+    if (selectedAccounts !== undefined && !accountRotation?.enabled) {
       if (selectedAccounts.length > 0) {
         const validAccounts = await YouTubeAccountModel.find({
           _id: { $in: selectedAccounts },
