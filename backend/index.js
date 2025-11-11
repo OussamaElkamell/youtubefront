@@ -24,7 +24,7 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGODB_URI, {
+mongoose.connect(process.env.MONGO_URL, {
   useNewUrlParser: true,
   useUnifiedTopology: true,
 })
@@ -36,12 +36,16 @@ mongoose.connect(process.env.MONGODB_URI, {
 // Configure middleware
 app.use(helmet());
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:8080',
+  origin: process.env.CLIENT_URL || 'http://localhost:4000',
   credentials: true
 }));
 app.set('trust proxy', 1);
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.post('/test', (req, res) => {
+  console.log(req.body);
+  res.json(req.body);
+});
 
 // Setup rate limiting
 const apiLimiter = rateLimit({

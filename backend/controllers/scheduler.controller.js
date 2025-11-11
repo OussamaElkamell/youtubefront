@@ -112,27 +112,42 @@ const createSchedule = async (req, res, next) => {
       accountCategories,
       accountRotation
     } = req.body;
-    console.log("scheduleConfig",scheduleConfig);
-    
+    console.log("scheduleConfig", scheduleConfig);
+
     // helper to get a random integer between min and max (inclusive)
     const randomBetween = (min, max) =>
       Math.floor(Math.random() * (max - min + 1)) + min;
 
-    // --- Reorganize delays ---
-    const delaysData = {
-      minDelay: delays.minDelay,
-      maxDelay: delays.maxDelay,
-      betweenAccounts: delays.betweenAccounts,
-      limitComments: {
-        // if limitComments is 0 → pick random between minSleepComments & maxSleepComments
+    // --- ✅ FIXED: Reorganize delays ---
+    let limitCommentsData;
+
+    if (
+      typeof delays.limitComments === "object" &&
+      delays.limitComments !== null
+    ) {
+      // Case 1: already structured as { value, min, max }
+      limitCommentsData = {
+        value: Number(delays.limitComments.value ?? 0),
+        min: Number(delays.limitComments.min ?? 0),
+        max: Number(delays.limitComments.max ?? 0),
+      };
+    } else {
+      // Case 2: simple number → build it properly
+      limitCommentsData = {
         value:
           delays.limitComments === 0
             ? randomBetween(delays.minSleepComments ?? 1, delays.maxSleepComments ?? 1)
-            : delays.limitComments,
-        min: delays.minSleepComments,
-        max: delays.maxSleepComments,
-      },
- 
+            : Number(delays.limitComments ?? 0),
+        min: Number(delays.minSleepComments ?? 0),
+        max: Number(delays.maxSleepComments ?? 0),
+      };
+    }
+
+    const delaysData = {
+      minDelay: Number(delays.minDelay ?? 0),
+      maxDelay: Number(delays.maxDelay ?? 0),
+      betweenAccounts: Number(delays.betweenAccounts ?? 0),
+      limitComments: limitCommentsData,
     };
 
     // --- Reorganize interval ---
@@ -143,7 +158,6 @@ const createSchedule = async (req, res, next) => {
       const maxVal = i.maxValue ?? i.max ?? minVal;
 
       intervalData = {
-        // if value is 0 → random between min & max
         value:
           i.value === 0
             ? randomBetween(minVal, maxVal)
@@ -163,12 +177,11 @@ const createSchedule = async (req, res, next) => {
         return res.status(400).json({ message: rotationValidation.error });
       }
 
-      // Validate all account IDs exist and are active
       const allAccountIds = [
         ...(accountCategories.principal || []),
         ...(accountCategories.secondary || [])
       ];
-      
+
       const validAccounts = await YouTubeAccountModel.find({
         _id: { $in: allAccountIds },
         user: req.user.id,
@@ -182,7 +195,6 @@ const createSchedule = async (req, res, next) => {
         });
       }
 
-      // When rotation is enabled, use principal accounts as initial selected accounts
       selectedAccounts = accountCategories.principal;
     } else {
       // --- Validate accounts (non-rotation mode) ---
@@ -221,8 +233,8 @@ const createSchedule = async (req, res, next) => {
       accountSelection: accountSelection || 'specific',
       selectedAccounts,
       schedule: {
-        ...scheduleConfig,  
-        interval: intervalData  
+        ...scheduleConfig,
+        interval: intervalData
       },
       delays: delaysData,
       includeEmojis,
@@ -230,12 +242,14 @@ const createSchedule = async (req, res, next) => {
       interval: intervalData,
       useAI,
       accountCategories: accountRotation?.enabled ? accountCategories : undefined,
-      accountRotation: accountRotation?.enabled ? {
-        enabled: true,
-        currentlyActive: 'principal',
-        rotatedPrincipalIds: [],
-        rotatedSecondaryIds: []
-      } : undefined
+      accountRotation: accountRotation?.enabled
+        ? {
+            enabled: true,
+            currentlyActive: 'principal',
+            rotatedPrincipalIds: [],
+            rotatedSecondaryIds: []
+          }
+        : undefined,
     });
 
     await schedule.save();
@@ -250,6 +264,7 @@ const createSchedule = async (req, res, next) => {
     next(error);
   }
 };
+
 
 
 

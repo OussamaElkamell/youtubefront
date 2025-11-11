@@ -70,23 +70,35 @@ const ScheduleSchema = new mongoose.Schema({
 
 }
 ,
- delays: {
-  minDelay: { type: Number, default: 0 },
-  maxDelay: { type: Number, default: 0 },
-  betweenAccounts: { type: Number, default: 0 },
-  limitComments: {
-    value: {
-      value: { type: Number, default: 0 },
-      min: { type: Number, default: 0 },
-      max: { type: Number, default: 0 }
+  delays: {
+    minDelay: {
+      type: Number,
+      default: 0
     },
-    min: { type: Number, default: 0 },
-    max: { type: Number, default: 0 }
+    maxDelay: {
+      type: Number,
+      default: 0
+    },
+    betweenAccounts: {
+      type: Number,
+      default: 0
+    },
+       limitComments: {
+    value: { type: Number, default: 0 },
+    min:  { type: Number, default: 0 },
+    max:  { type: Number, default: 0 }
+    },
+          delayofsleep: {
+      type: Number,
+      default: 0
+    },
+    delayStartTime: {
+      type: Date,
+      default:null
+
+    },
+    
   },
-  delayofsleep: { type: Number, default: 0 },
-  delayStartTime: { type: Date, default: null }
-}
-,
   progress: {
     totalComments: {
       type: Number,

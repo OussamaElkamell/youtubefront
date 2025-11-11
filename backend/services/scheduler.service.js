@@ -274,9 +274,13 @@ async function handleIntervalSchedule(schedule, scheduleId) {
     const postedComments = currentSchedule.progress?.postedComments || 0;
     const limitComments = currentSchedule.delays?.limitComments.value || 0;
 console.log("hhhhhhhhhhhhhhhhhhhheeeeeeeeeeeloooooo");
-
-    if (limitComments > 0 && postedComments % limitComments === 0 && postedComments > 0) {
-      console.log("heeeeeeeeeeelo agaaaaaaain");
+  const sleepCheckKey = `schedule:${scheduleId}:sleep:check`;
+    const shouldCheckSleep = await redisClient.set(sleepCheckKey, '1', {
+      NX: true,
+      EX: 60 // Lock for 1 minute
+    });
+    if (shouldCheckSleep && limitComments > 0 && postedComments % limitComments === 0 && postedComments > 0) {
+ console.log(`[Schedule ${scheduleId}] 💤 Sleep Mode Activated:`);
       
       const minDelay = currentSchedule.delays.minDelay || 1;
       const maxDelay = currentSchedule.delays.maxDelay || 30;
@@ -528,20 +532,25 @@ scheduleWorker.on('failed', (job, err) => {
       lastMessage: result.success ? 'Comment posted successfully' : result.message || result.error || 'Unknown error',
     };
 
-    if (result.success) {
-      updateFields.status = 'active';
-      updateFields.proxyErrorCount = 0;
+if (result.success) {
+  updateFields.status = 'active';
+  updateFields.proxyErrorCount = 0;
 
-      const schedule = await ScheduleModel.findById(scheduleId);
-          const updatedSchedule = await ScheduleModel.findById(scheduleId)
-          .populate('selectedAccounts')
-          .lean();
-        
-        if (updatedSchedule &&schedule?.schedule?.type === 'interval') {
-          console.log(`[Schedule ${scheduleId}] Triggering handleIntervalSchedule to restore normal operation`);
-          await handleIntervalSchedule(updatedSchedule, scheduleId);
-        }
- 
+  const schedule = await ScheduleModel.findById(scheduleId);
+  const updatedSchedule = await ScheduleModel.findById(scheduleId)
+    .populate('selectedAccounts')
+    .lean();
+
+  // ✅ ONLY trigger handleIntervalSchedule if:
+  // 1. It's an interval schedule
+  // 2. We're NOT currently in sleep mode (to avoid double-triggering)
+  if (updatedSchedule && 
+      schedule?.schedule?.type === 'interval' && 
+      updatedSchedule.delays?.delayofsleep === 0) {
+    console.log(`[Schedule ${scheduleId}] Triggering handleIntervalSchedule check`);
+    await handleIntervalSchedule(updatedSchedule, scheduleId);
+  }
+
 
     } else if (proxyError) {
       const currentAccount = await YouTubeAccountModel.findById(comment.youtubeAccount._id);
@@ -1020,6 +1029,8 @@ const numAccounts = accounts.length;
       if (schedule.useAI) {
         try {
           const title = await getYouTubeVideoTitle(videoId);
+          console.log("video title : ",title);
+          
           baseContent = await generateCommentFromTitle(title);
           if (!schedule.commentTemplates.includes(baseContent)) {
             schedule.commentTemplates.push(baseContent);
