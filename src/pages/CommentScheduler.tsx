@@ -213,50 +213,64 @@ const CommentScheduler = () => {
     setIsCreateDialogOpen(true);
   };
 
-  const openEditDialog = (id: string) => {
-    const schedule = schedules.find((s) => s._id === id);
-    if (!schedule) return;
+ const openEditDialog = (id: string) => {
+  const schedule = schedules.find((s) => s._id === id);
+  if (!schedule) return;
 
-    setSelectedScheduleId(id);
-    setSelectedSchedule(schedule);
-    
-    // Transform the schedule data to match form structure
-    form.reset({
-      name: schedule.name,
-      commentTemplates: schedule.commentTemplates,
-      targetVideos: schedule.targetVideos,
-      accountSelection: schedule.accountSelection,
-      selectedAccounts: schedule.selectedAccounts.map(acc => acc._id),
-      scheduleType: schedule.schedule.type,
-      startDate: schedule.schedule.startDate ? new Date(schedule.schedule.startDate) : undefined,
-      endDate: schedule.schedule.endDate ? new Date(schedule.schedule.endDate) : undefined,
-      cronExpression: schedule.schedule.cronExpression,
-      intervalValue: schedule.schedule.interval?.value,
-      intervalUnit: schedule.schedule.interval?.unit,
-      minIntervalValue: schedule.schedule.interval?.minValue || 1,
-      maxIntervalValue: schedule.schedule.interval?.maxValue || 2,
-        minDelay: schedule.delays.minDelay,
-        maxDelay: schedule.delays.maxDelay,
-        limitComments: typeof schedule.delays.limitComments === 'object' 
-          ? schedule.delays.limitComments.value 
-          : schedule.delays.limitComments || 0,
-        minSleepComments: typeof schedule.delays.limitComments === 'object'
-          ? schedule.delays.limitComments.min
-          : 5,
-        maxSleepComments: typeof schedule.delays.limitComments === 'object'
-          ? schedule.delays.limitComments.max
-          : 10,
-      betweenAccounts: schedule.delays.betweenAccounts,
-      includeEmojis: schedule.includeEmojis,
-      useAI: schedule.useAI,
-      enableAccountRotation: schedule.accountRotation?.enabled || false,
-      principalAccounts: schedule.accountCategories?.principal?.map(acc => acc._id) || [],
-      secondaryAccounts: schedule.accountCategories?.secondary?.map(acc => acc._id) || [],
-    });
-    
-    setUseAI(schedule.useAI || false);
-    setIsEditDialogOpen(true);
-  };
+  setSelectedScheduleId(id);
+  setSelectedSchedule(schedule);
+
+  // Helper function: safely extract account IDs from either objects or strings
+  const extractIds = (arr: any[] = []) =>
+    arr.map(acc => (typeof acc === "string" ? acc : acc?._id)).filter(Boolean);
+
+  // Transform the schedule data to match form structure
+  form.reset({
+    name: schedule.name || "",
+    commentTemplates: schedule.commentTemplates || [],
+    targetVideos: schedule.targetVideos || [],
+    accountSelection: schedule.accountSelection || "specific",
+    selectedAccounts: (schedule.selectedAccounts || []).map(acc =>
+      typeof acc === "string" ? acc : acc._id
+    ),
+    scheduleType: schedule.schedule?.type || "immediate",
+    startDate: schedule.schedule?.startDate
+      ? new Date(schedule.schedule.startDate)
+      : undefined,
+    endDate: schedule.schedule?.endDate
+      ? new Date(schedule.schedule.endDate)
+      : undefined,
+    cronExpression: schedule.schedule?.cronExpression || "",
+    intervalValue: schedule.schedule?.interval?.value || 0,
+    intervalUnit: schedule.schedule?.interval?.unit || "days",
+    minIntervalValue: schedule.schedule?.interval?.minValue || 1,
+    maxIntervalValue: schedule.schedule?.interval?.maxValue || 2,
+    minDelay: schedule.delays?.minDelay || 0,
+    maxDelay: schedule.delays?.maxDelay || 0,
+    limitComments:
+      typeof schedule.delays?.limitComments === "object"
+        ? schedule.delays.limitComments.value
+        : schedule.delays?.limitComments || 0,
+    minSleepComments:
+      typeof schedule.delays?.limitComments === "object"
+        ? schedule.delays.limitComments.min
+        : 5,
+    maxSleepComments:
+      typeof schedule.delays?.limitComments === "object"
+        ? schedule.delays.limitComments.max
+        : 10,
+    betweenAccounts: schedule.delays?.betweenAccounts || 0,
+    includeEmojis: !!schedule.includeEmojis,
+    useAI: !!schedule.useAI,
+    enableAccountRotation: schedule.accountRotation?.enabled || false,
+    principalAccounts: extractIds(schedule.accountCategories?.principal),
+    secondaryAccounts: extractIds(schedule.accountCategories?.secondary),
+  });
+
+  setUseAI(!!schedule.useAI);
+  setIsEditDialogOpen(true);
+};
+
 
 const getLimitCommentsLabel = (delays) => {
   if (!delays?.limitComments) return "0";
