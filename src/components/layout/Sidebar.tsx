@@ -1,6 +1,6 @@
 
 import { Link, useLocation } from "react-router-dom";
-import { LayoutDashboard, Users, Calendar, Youtube } from "lucide-react";
+import { LayoutDashboard, Users, Calendar, Youtube, Eye } from "lucide-react";
 import {
   Sidebar as SidebarComponent,
   SidebarContent,
@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils";
 
 const Sidebar = () => {
   const location = useLocation();
-  
+
   const menuItems = [
     {
       title: "Dashboard",
@@ -32,6 +32,7 @@ const Sidebar = () => {
       icon: Calendar,
       path: "/scheduler",
     },
+
   ];
 
   return (

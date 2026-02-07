@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { youtubeAccountsApi } from "@/lib/api-client";
 
 export type YouTubeAccount = {
-  _id: string;
+  id: string;
   email: string;
   channelTitle?: string;
   channelId?: string;
@@ -18,7 +18,7 @@ export function useYouTubeAccountsSelect() {
       return response.accounts;
     }
   });
-  
+
   return {
     accounts: accountsQuery.data || [],
     isLoading: accountsQuery.isLoading,

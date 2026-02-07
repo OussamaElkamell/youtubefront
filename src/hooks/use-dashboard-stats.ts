@@ -11,6 +11,7 @@ interface Comment {
 
 interface Profile {
   usedQuota: number;
+  limitQuota: number;
   isActive: boolean;
   status: string;
   name: string;
@@ -51,10 +52,13 @@ interface DashboardStats {
     dueToday: number;
     running: number;
   };
-  profiles?: {
+  profiles: Array<{
+    name: string;
     usedQuota: number;
     totalQuota: number;
-  }[];
+    status: string;
+    isActive: boolean;
+  }>;
 }
 
 export const useDashboardStats = () => {
@@ -111,6 +115,7 @@ export const useDashboardStats = () => {
         const profilesData = profiles.map(profile => ({
           name: profile.name,
           usedQuota: profile.usedQuota,
+          totalQuota: profile.limitQuota,
           status: profile.status,
           isActive: profile.isActive,
         }));
@@ -133,7 +138,8 @@ export const useDashboardStats = () => {
               s => new Date(s.schedule.nextRun).toDateString() === today.toDateString()
             ).length,
             running: runningSchedules
-          }
+          },
+          profiles: profilesData
         };
       } catch (error) {
         console.error("Failed to fetch dashboard stats:", error);
@@ -154,7 +160,8 @@ export const useDashboardStats = () => {
             total: 0,
             dueToday: 0,
             running: 0
-          }
+          },
+          profiles: []
         };
       }
     },

@@ -68,7 +68,7 @@ export const ProfileSelectionDialog = ({
 
   const handleUpdateProfile = async () => {
     if (!editingProfile) return;
-    await onUpdateProfile(editingProfile._id, {
+    await onUpdateProfile(editingProfile.id, {
       name: editingProfile.name,
       clientId: editingProfile.clientId,
       clientSecret: editingProfile.clientSecret,
@@ -103,23 +103,21 @@ export const ProfileSelectionDialog = ({
             <div className="max-h-[400px] overflow-y-auto space-y-3">
               {profiles.map((profile) => (
                 <div
-                  key={profile._id}
-                  className={`p-4 border rounded-lg transition-all ${
-                    selectedProfileId === profile._id
+                  key={profile.id}
+                  className={`p-4 border rounded-lg transition-all ${selectedProfileId === profile.id
                       ? 'border-primary bg-primary/5 shadow-sm'
                       : 'hover:bg-muted/30'
-                  } ${
-                    profile._id === activeProfileId ? 'ring-1 ring-green-500/30' : ''
-                  }`}
+                    } ${profile.id === activeProfileId ? 'ring-1 ring-green-500/30' : ''
+                    }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div
                       className="flex-1 cursor-pointer space-y-2"
-                      onClick={() => setSelectedProfileId(profile._id)}
+                      onClick={() => setSelectedProfileId(profile.id)}
                     >
                       <div className="flex items-center gap-2">
                         <h4 className="font-semibold text-base">{profile.name}</h4>
-                        {profile._id === activeProfileId && (
+                        {profile.id === activeProfileId && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                             Active
                           </span>
@@ -158,7 +156,7 @@ export const ProfileSelectionDialog = ({
                         className="h-8 w-8 text-destructive hover:text-destructive"
                         onClick={(e) => {
                           e.stopPropagation();
-                          setProfileToDelete(profile._id);
+                          setProfileToDelete(profile.id);
                         }}
                         disabled={isLoading || isDeleting}
                       >

@@ -18,17 +18,17 @@ const handleResponse = async (response: Response) => {
     } catch (error) {
       console.error("Failed to parse error response", error);
     }
-    
+
     throw new Error(errorMessage);
   }
-  
+
   return response.json();
 };
 
 // Generic API request function
 const apiRequest = async (
-  endpoint: string, 
-  method: string = "GET", 
+  endpoint: string,
+  method: string = "GET",
   data?: unknown
 ): Promise<any> => {
   try {
@@ -36,21 +36,21 @@ const apiRequest = async (
     const headers: HeadersInit = {
       "Content-Type": "application/json",
     };
-    
+
     if (token) {
       headers["Authorization"] = `Bearer ${token}`;
     }
-    
+
     const config: RequestInit = {
       method,
       headers,
       credentials: "include",
     };
-    
+
     if (data && method !== "GET") {
       config.body = JSON.stringify(data);
     }
-    
+
     const response = await fetch(`${API_BASE_URL}${endpoint}`, config);
     return await handleResponse(response);
   } catch (error) {
@@ -94,14 +94,14 @@ export const youtubeAccountsApi = {
 
 // Comment specific API methods
 export const commentsApi = {
-  getAll: (params?: { page?: number; limit?: number; status?: string }) => 
+  getAll: (params?: { page?: number; limit?: number; status?: string }) =>
     api.get<{ comments: any[], pagination: any }>(`/comments${params ? `?${new URLSearchParams(params as any).toString()}` : ''}`),
   getStats: () => api.get<{ comments: any[] }>("/comments/stats"),
 };
 
 // Scheduler specific API methods
 export const schedulerApi = {
-  getAll: (params?: { page?: number; limit?: number; status?: string }) => 
+  getAll: (params?: { page?: number; limit?: number; status?: string }) =>
     api.get<{ schedules: any[], pagination: any }>(`/scheduler${params ? `?${new URLSearchParams(params as any).toString()}` : ''}`),
   getById: (id: string) => api.get<{ schedule: any, comments: any[] }>(`/scheduler/${id}`),
   create: (scheduleData: any) => api.post<{ schedule: any, message: string }>("/scheduler", scheduleData),
@@ -109,6 +109,16 @@ export const schedulerApi = {
   delete: (id: string) => api.delete<{ message: string }>(`/scheduler/${id}`),
   pause: (id: string) => api.post<{ schedule: any, message: string }>(`/scheduler/${id}/pause`),
   resume: (id: string) => api.post<{ schedule: any, message: string }>(`/scheduler/${id}/resume`),
+  complete: (id: string) => api.post<{ schedule: any, message: string }>(`/scheduler/${id}/complete`),
   getSummary: () => api.get<{ schedulers: any }>("/scheduler/summary"),
-  
+};
+
+// Views specific API methods
+export const viewsApi = {
+  getAll: (params?: { page?: number; limit?: number; status?: string }) =>
+    api.get<{ schedules: any[], pagination: any }>(`/views${params ? `?${new URLSearchParams(params as any).toString()}` : ''}`),
+  getById: (id: string) => api.get<{ schedule: any }>(`/views/${id}`),
+  create: (data: any) => api.post<{ schedule: any, message: string }>("/views", data),
+  update: (id: string, updates: any) => api.put<{ schedule: any, message: string }>(`/views/${id}`, updates),
+  delete: (id: string) => api.delete<{ message: string }>(`/views/${id}`),
 };

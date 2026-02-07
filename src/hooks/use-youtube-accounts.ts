@@ -5,27 +5,36 @@ import { youtubeAccountsApi } from "@/lib/api-client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 export interface YouTubeAccount {
-  _id: string;
+  id: string;
   email: string;
   status: "active" | "inactive" | "limited" | "banned";
   channelId?: string;
   channelTitle?: string;
   thumbnailUrl?: string;
-  proxy?: string | null;
+  proxy?: {
+    host: string;
+    port: number;
+    username?: string;
+    password?: string;
+    protocol?: string;
+    status?: string;
+  } | null;
   connectedDate: string;
-  google?: {
-    tokenExpiry?: string;
-  };
+  tokenExpiry?: string;
+  clientId: string;
+  redirectUri: string;
+  lastMessage?: string;
+  apiProfileId: string;
 }
 
 export const useYouTubeAccounts = () => {
   const queryClient = useQueryClient();
-  
+
   // Fetch all accounts
-  const { 
-    data, 
-    isLoading, 
-    error 
+  const {
+    data,
+    isLoading,
+    error
   } = useQuery({
     queryKey: ['youtubeAccounts'],
     queryFn: async () => {
@@ -33,9 +42,9 @@ export const useYouTubeAccounts = () => {
       return response.accounts;
     }
   });
-  
+
   const accounts = data || [];
-  
+
   // Add a new account
   const addAccountMutation = useMutation({
     mutationFn: (accountData: {
@@ -53,13 +62,14 @@ export const useYouTubeAccounts = () => {
       });
     }
   });
-  
+
   // Update an account
   const updateAccountMutation = useMutation({
-    mutationFn: ({ id, updates }: { id: string; updates: Partial<YouTubeAccount> }) => 
+    mutationFn: ({ id, updates }: { id: string; updates: Partial<YouTubeAccount> }) =>
       youtubeAccountsApi.update(id, updates),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['youtubeAccounts'] });
+      toast.success("Account updated successfully");
     },
     onError: (error: Error) => {
       toast.error("Failed to update account", {
@@ -67,7 +77,7 @@ export const useYouTubeAccounts = () => {
       });
     }
   });
-  
+
   // Delete an account
   const removeAccountMutation = useMutation({
     mutationFn: (id: string) => youtubeAccountsApi.delete(id),
@@ -80,7 +90,7 @@ export const useYouTubeAccounts = () => {
       });
     }
   });
-  
+
   // Verify an account
   const verifyAccountMutation = useMutation({
     mutationFn: (id: string) => youtubeAccountsApi.verify(id),
@@ -96,7 +106,7 @@ export const useYouTubeAccounts = () => {
       });
     }
   });
-  
+
   // Refresh token for an account
   const refreshTokenMutation = useMutation({
     mutationFn: (id: string) => youtubeAccountsApi.refreshToken(id),
@@ -112,7 +122,7 @@ export const useYouTubeAccounts = () => {
       });
     }
   });
-  
+
   // Add account function
   const addAccount = (accountData: {
     accessToken: string;
@@ -122,24 +132,24 @@ export const useYouTubeAccounts = () => {
   }) => {
     addAccountMutation.mutate(accountData);
   };
-  
+
   // Update account function
   const updateAccount = (id: string, updates: Partial<YouTubeAccount>) => {
     updateAccountMutation.mutate({ id, updates });
   };
-  
+
   // Remove account function
   const removeAccount = (id: string) => {
     removeAccountMutation.mutate(id);
   };
-  
+
   // Toggle account status
   const toggleAccountStatus = async (id: string) => {
-    const account = accounts.find(acc => acc._id === id);
+    const account = accounts.find(acc => acc.id === id);
     if (!account) return;
-  
+
     const newStatus = account.status === "active" ? "inactive" : "active";
-  
+
     return new Promise<void>((resolve, reject) => {
       updateAccountMutation.mutate(
         { id, updates: { status: newStatus } },
@@ -150,36 +160,37 @@ export const useYouTubeAccounts = () => {
       );
     });
   };
-  
-  
+
+
   // Update account proxy
   const updateAccountProxy = (id: string, proxy: string) => {
-    updateAccountMutation.mutate({ 
-      id, 
-      updates: { proxy: proxy || null } 
+    console.log("Saving proxy for account:", id, "Value:", proxy);
+    updateAccountMutation.mutate({
+      id,
+      updates: { proxy: proxy || null } as any  // API expects string but returns object
     });
   };
-  
+
   // Verify account
   const verifyAccount = (id: string) => {
     verifyAccountMutation.mutate(id);
   };
-  
+
   // Refresh token
   const refreshToken = (id: string) => {
     refreshTokenMutation.mutate(id);
   };
-  
+
   // Get active accounts
   const getActiveAccounts = () => {
     return accounts.filter(account => account.status === "active");
   };
-  
+
   // Get account by ID
   const getAccountById = (id: string) => {
-    return accounts.find(account => account._id === id);
+    return accounts.find(account => account.id === id);
   };
-  
+
   return {
     accounts,
     isLoading,

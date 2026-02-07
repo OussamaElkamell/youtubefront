@@ -3,17 +3,17 @@ import { useState, useEffect } from 'react';
 
 
 export interface ApiProfile {
-    _id: string;
-    name: string;
-    clientId: string;
-    clientSecret: string;
-    apiKey: string;
-    redirectUri: string;
-    limitQuota?: number;
-    isActive: boolean;
-    createdAt: string;
-    updatedAt: string;
-  }
+  id: string;
+  name: string;
+  clientId: string;
+  clientSecret: string;
+  apiKey: string;
+  redirectUri: string;
+  limitQuota?: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export const useApiProfiles = () => {
   const [profiles, setProfiles] = useState<ApiProfile[]>([]);
@@ -37,14 +37,14 @@ export const useApiProfiles = () => {
           'Content-Type': 'application/json'
         }
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to fetch profiles');
       }
-      
+
       const data = await response.json();
-      setProfiles(data);
+      setProfiles(data.profiles || data); // Extract profiles if nested, otherwise use raw data
     } catch (err) {
       setError(err instanceof Error ? err : new Error('An unknown error occurred'));
     } finally {
@@ -52,7 +52,7 @@ export const useApiProfiles = () => {
     }
   };
 
-  const createProfile = async (profileData: Omit<ApiProfile, '_id' | 'createdAt' | 'updatedAt'>) => {
+  const createProfile = async (profileData: Omit<ApiProfile, 'id' | 'createdAt' | 'updatedAt'>) => {
     setIsCreating(true);
     setError(null);
     try {
@@ -64,7 +64,7 @@ export const useApiProfiles = () => {
         },
         body: JSON.stringify(profileData)
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to create profile');
@@ -91,14 +91,14 @@ export const useApiProfiles = () => {
         },
         body: JSON.stringify(profileData)
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to update profile');
       }
 
       const updatedProfile = await response.json();
-      setProfiles(prev => prev.map(p => p._id === id ? updatedProfile : p));
+      setProfiles(prev => prev.map(p => p.id === id ? updatedProfile : p));
       return updatedProfile;
     } catch (err) {
       setError(err instanceof Error ? err : new Error('An unknown error occurred'));
@@ -112,13 +112,13 @@ export const useApiProfiles = () => {
         method: 'DELETE',
         headers: getAuthHeader()
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to delete profile');
       }
 
-      setProfiles(prev => prev.filter(p => p._id !== id));
+      setProfiles(prev => prev.filter(p => p.id !== id));
     } catch (err) {
       setError(err instanceof Error ? err : new Error('An unknown error occurred'));
       throw err;
@@ -133,7 +133,7 @@ export const useApiProfiles = () => {
         method: 'POST',
         headers: getAuthHeader()
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Failed to set active profile');
@@ -155,16 +155,16 @@ export const useApiProfiles = () => {
     fetchProfiles();
   }, []);
 
-  return { 
-    profiles, 
-    isLoading, 
-    error, 
+  return {
+    profiles,
+    isLoading,
+    error,
     isCreating,
     isSettingActive,
     createProfile,
     updateProfile,
     deleteProfile,
     setActiveProfile,
-    refresh: fetchProfiles 
+    refresh: fetchProfiles
   };
 };

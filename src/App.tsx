@@ -8,6 +8,7 @@ import Layout from "./components/layout/Layout";
 import Dashboard from "./pages/Dashboard";
 import Accounts from "./pages/Accounts";
 import CommentScheduler from "./pages/CommentScheduler";
+import ViewsScheduler from "./pages/ViewsScheduler";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import ForgotPassword from "./pages/ForgotPassword";
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="accounts" element={<Accounts />} />
             <Route path="scheduler" element={<CommentScheduler />} />
+
             <Route path="*" element={<NotFound />} />
           </Route>
         </Routes>
