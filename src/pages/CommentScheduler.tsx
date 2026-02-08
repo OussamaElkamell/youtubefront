@@ -334,6 +334,10 @@ const CommentScheduler = () => {
         typeof schedule.limitComments === "object"
           ? schedule.limitComments.max
           : 10,
+      isRandomSleepComments:
+        typeof schedule.limitComments === "object"
+          ? !!schedule.limitComments.isRandom
+          : false,
       betweenAccounts: schedule.betweenAccounts || 0,
       includeEmojis: !!schedule.includeEmojis,
       useAI: !!schedule.useAI,
